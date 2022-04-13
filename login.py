@@ -6,8 +6,8 @@ def request_handler(request):
     create_database()
     if request["method"] == "POST":
         try:
-            user = request['values']['user']
-            pw = request['values']['pw']
+            user = request['values']['username']
+            pw = request['values']['password']
             return login(user, pw)
         except Exception as e:
             return "Error: username or password is missing"
@@ -31,13 +31,13 @@ def insert_into_database(user, pw):
 def login(user, pw):
     conn = sqlite3.connect(user_data)
     c = conn.cursor()
-    correct_pw = c.execute('''SELECT pw FROM user_data WHERE user = ?;''',(user)).fetchone()
+    correct_pw = c.execute('''SELECT pw FROM user_data WHERE user = ?;''',(user,)).fetchone()
     if correct_pw is None:
         insert_into_database(user, pw)
-        return "Welcome to BluePencils, " + user
+        return "Welcome to BluePencils, " + user + "!"
     conn.commit()
     conn.close()
     if pw[0] == correct_pw:
-        return "Welcome back, " + user
+        return "Welcome back, " + user + "!"
     else:
         return "Incorrect password!"
