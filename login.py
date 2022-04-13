@@ -37,7 +37,7 @@ def login(user, pw):
         return "Welcome to BluePencils, " + user + "!"
     conn.commit()
     conn.close()
-    if pw == correct_pw:
+    if pw == correct_pw[0]:
         return "Welcome back, " + user + "!"
     else:
         return "Incorrect password!"
