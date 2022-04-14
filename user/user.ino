@@ -177,7 +177,7 @@ class StringGetter {
     }
     boolean is_done() {
       Serial.printf("the value of the state is: %d\n", state);
-      return state == 1;
+      return (state == 1);
     }
 };
 
@@ -268,7 +268,7 @@ void loop() {
   }else if(login_state == USERNAME){
     username_getter.update(y, bv, username);
     if(username_getter.is_done()){
-      login_state == PASSWORD;
+      login_state = PASSWORD;
     }
   }else if(login_state == PASSWORD){
     password_getter.update(y, bv, password);
@@ -276,7 +276,7 @@ void loop() {
       tft.fillScreen(TFT_BLACK);
       tft.setCursor(0, 0, 1);
       tft.printf("Sending data to server!");
-      login_state == DONE;
+      login_state = DONE;
     }
   }else{
     //state is DONE
