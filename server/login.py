@@ -6,8 +6,8 @@ def request_handler(request):
     create_database()
     if request["method"] == "POST":
         try:
-            user = request['values']['username']
-            pw = request['values']['password']
+            user = request['form']['username']
+            pw = request['form']['password']
             return login(user, pw)
         except Exception as e:
             return "Error: username or password is missing"

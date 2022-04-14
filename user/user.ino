@@ -15,11 +15,13 @@ MPU6050 imu; //imu object called, appropriately, imu
 
 char network[] = "MIT";  //SSID for .08 Lab
 char wifi_password[] = ""; //Password for 6.08 Lab
-
+char POST_URL[] = "http://608dev-2.net/sandbox/sc/team39/login.py";
 
 //Some constants and some resources:
 const int RESPONSE_TIMEOUT = 6000; //ms to wait for response from host
+const uint16_t IN_BUFFER_SIZE = 1000; //size of buffer to hold HTTP request
 const uint16_t OUT_BUFFER_SIZE = 1000; //size of buffer to hold HTTP response
+char request[IN_BUFFER_SIZE];
 char old_response[OUT_BUFFER_SIZE]; //char array buffer to hold HTTP request
 char response[OUT_BUFFER_SIZE]; //char array buffer to hold HTTP request
 
@@ -280,6 +282,17 @@ void loop() {
     }
   }else{
     //state is DONE
+    char body[1000]; //for body
+    sprintf(body, "username=%s&password=%s", username, password);
+    int body_len = strlen(body); //calculate body length (for header reporting)
+    sprintf(request, POST_URL);
+    strcat(request, "Host: 608dev-2.net\r\n");
+    strcat(request, "Content-Type: application/x-www-form-urlencoded\r\n");
+    sprintf(request + strlen(request), "Content-Length: %d\r\n", body_len); //append string formatted to end of request buffer
+    strcat(request, "\r\n"); //new line from header to body
+    strcat(request, body); //body
+    strcat(request, "\r\n"); //new line
+    do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, true);
   }
   if (strcmp(username, old_username) != 0 || strcmp(password, old_password)) {//only draw if changed!
     tft.fillScreen(TFT_BLACK);
