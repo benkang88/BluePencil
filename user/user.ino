@@ -13,8 +13,8 @@ const int LOOP_PERIOD = 40;
 
 MPU6050 imu; //imu object called, appropriately, imu
 
-char network[] = "MIT";  //SSID for 6.08 Lab
-char password[] = ""; //Password for 6.08 Lab
+char network[] = "MIT";  //SSID for .08 Lab
+char wifi_password[] = ""; //Password for 6.08 Lab
 
 
 //Some constants and some resources:
@@ -22,6 +22,7 @@ const int RESPONSE_TIMEOUT = 6000; //ms to wait for response from host
 const uint16_t OUT_BUFFER_SIZE = 1000; //size of buffer to hold HTTP response
 char old_response[OUT_BUFFER_SIZE]; //char array buffer to hold HTTP request
 char response[OUT_BUFFER_SIZE]; //char array buffer to hold HTTP request
+
 
 //pins for LCD and AUDIO CONTROL
 uint8_t LCD_CONTROL = 21;
@@ -133,9 +134,9 @@ class Button{
   }
 };
 
-class WikipediaGetter {
-    char alphabet[50] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    char msg[400] = {0}; //contains previous query response
+
+class StringGetter {
+    char alphabet[50] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     char query_string[50] = {0};
     int char_index;
     int state;
@@ -143,34 +144,23 @@ class WikipediaGetter {
     const int scroll_threshold = 150;
     const float angle_threshold = 0.3;
   public:
-
-    WikipediaGetter() {
+    StringGetter() {
       state = 0;
-      memset(msg, 0, sizeof(msg));//empty it.
-      strcat(msg, "Long Press to Start!");
       char_index = 0;
       scroll_timer = millis();
     }
     void update(float angle, int button, char* output) {
-      int alphabet_length = 37;
+      int alphabet_length = 36;
       if(state == 0){
-        scroll_timer = millis();
-        char_index = 0;
-        strcpy(output, msg);
-        if(button == 2){
-          state = 1;
-        }
-      }else if(state == 1){
         // printf("angle: %f\nbutton: %d\noutput: %s\nquery_string: %s\n\n", angle, button, output, query_string);
         if(button == 1){
           char temp[100];
           sprintf(temp, "%c", alphabet[char_index]);
           strcat(query_string, temp);
-          strcpy(output, "query_string");
+          strcpy(output, query_string);
           char_index = 0;
         }else if(button == 2){
-          state = 2;
-          sprintf(output, "");
+          state = 1;
         }else if(millis() - scroll_timer > scroll_threshold){
           if(angle > angle_threshold){
               char_index = (char_index + 1) % alphabet_length;
@@ -183,27 +173,38 @@ class WikipediaGetter {
         }else{
           sprintf(output, "%s%c", query_string, alphabet[char_index]);
         }
-      }else if(state == 2){
-        strcpy(output, "Sending Query");
-        state = 3;
-      }else if(state == 3){
-        char temp[300];
-        sprintf(temp, "%s&len=200", query_string);
-        lookup(temp, msg, 400);
-        strcpy(query_string, "");
-        strcpy(output, msg);
-        state = 0;
       }
+    }
+    boolean is_done() {
+      Serial.printf("the value of the state is: %d\n", state);
+      return state == 1;
     }
 };
 
-WikipediaGetter wg; //wikipedia object
+
+char old_username[100]; //for detecting changes
+char old_password[100]; //for detecting changes
+char username[100]; //for password string
+char password[100]; //for username string
+
+StringGetter username_getter; //wikipedia object
+StringGetter password_getter; 
+
+//START - indicates both strings are empty
+//USERNAME - indicates currently getting username
+//PASSWORD - indicates currently getting password
+//DONE - indicates we are done with both
+enum login_status {START, USERNAME, PASSWORD, DONE}; 
+login_status login_state;
+
 Button button(BUTTON_PIN); //button object!
+
+
 
 
 void setup() {
   Serial.begin(115200); //for debugging if needed.
-  WiFi.begin(network, password); //attempt to connect to wifi
+  WiFi.begin(network, wifi_password); //attempt to connect to wifi
   uint8_t count = 0; //count used for Wifi check times
   Serial.print("Attempting to connect to ");
   Serial.println(network);
@@ -243,20 +244,52 @@ void setup() {
   ledcSetup(LCD_PWM, 100, 12);//12 bits of PWM precision
   ledcWrite(LCD_PWM, 0); //0 is a 0% duty cycle for the PFET...increase if you'd like to dim the LCD.
   ledcAttachPin(LCD_CONTROL, LCD_PWM);
+
+  //initialize password and username to zero
+  sprintf(username, "");
+  sprintf(password, "");
+  sprintf(old_username, "");
+  sprintf(old_password, "");
+
+  login_state = START;
 }
 
 void loop() {
   float x, y;
   get_angle(&x, &y); //get angle values
+  Serial.printf("x: %f, y: %f\n", x, y);
   int bv = button.update(); //get button value
-  wg.update(y, bv, response); //input: angle and button, output String to display on this timestep
-  if (strcmp(response, old_response) != 0) {//only draw if changed!
+  Serial.printf("Current login_state is: %d\n", login_state);
+  if(login_state == START){
     tft.fillScreen(TFT_BLACK);
     tft.setCursor(0, 0, 1);
-    tft.println(response);
+    tft.printf("Username: %s\nPassword:%s\n", username, password);
+    login_state = USERNAME;
+  }else if(login_state == USERNAME){
+    username_getter.update(y, bv, username);
+    if(username_getter.is_done()){
+      login_state == PASSWORD;
+    }
+  }else if(login_state == PASSWORD){
+    password_getter.update(y, bv, password);
+    if(password_getter.is_done()){
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0, 1);
+      tft.printf("Sending data to server!");
+      login_state == DONE;
+    }
+  }else{
+    //state is DONE
   }
-  memset(old_response, 0, sizeof(old_response));
-  strcat(old_response, response);
+  if (strcmp(username, old_username) != 0 || strcmp(password, old_password)) {//only draw if changed!
+    tft.fillScreen(TFT_BLACK);
+    tft.setCursor(0, 0, 1);
+    tft.printf("Username: %s\nPassword:%s\n", username, password);
+  }
+  strcpy(old_username, username);
+  strcpy(old_password, password);
+  // memset(old_response, 0, sizeof(old_response));
+  // strcat(old_response, response);
   while (millis() - primary_timer < LOOP_PERIOD); //wait for primary timer to increment
   primary_timer = millis();
 }
