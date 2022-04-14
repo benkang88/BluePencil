@@ -2,8 +2,9 @@
 #include <SPI.h>
 #include <TFT_eSPI.h>
 #include <mpu6050_esp32.h>
-#include<math.h>
-#include<string.h>
+#include <math.h>
+#include <string.h>
+#include "Button.h"
 
 TFT_eSPI tft = TFT_eSPI();
 const int SCREEN_HEIGHT = 160;
@@ -45,17 +46,6 @@ void get_angle(float* x, float* y) {
   *y = imu.accelCount[1] * imu.aRes;
 }
 
-void lookup(char* query, char* response, int response_size) {
-  char request_buffer[200];
-  //CHANGE WHERE THIS IS TARGETED! IT SHOULD TARGET YOUR SERVER SCRIPT
-  //CHANGE WHERE THIS IS TARGETED! IT SHOULD TARGET YOUR SERVER SCRIPT
-  //CHANGE WHERE THIS IS TARGETED! IT SHOULD TARGET YOUR SERVER SCRIPT
-  sprintf(request_buffer, "GET /sandbox/sc/erives/ex05/wiki_interfacer.py?subject=%s HTTP/1.1\r\n", query);
-  strcat(request_buffer, "Host: 608dev-2.net\r\n");
-  strcat(request_buffer, "\r\n"); //new line from header to body
-
-  do_http_request("608dev-2.net", request_buffer, response, response_size, RESPONSE_TIMEOUT, true);
-}
 
 class StringGetter {
     char alphabet[50] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -98,8 +88,14 @@ class StringGetter {
       }
     }
     boolean is_done() {
-      Serial.printf("the value of the state is: %d\n", state);
       return (state == 1);
+    }
+
+    void reset() {
+      //reset 
+      state = 0;
+      char_index = 0;
+      sprintf(query_string, "");
     }
 };
 
@@ -115,11 +111,32 @@ StringGetter password_getter;
 //START - indicates both strings are empty
 //USERNAME - indicates currently getting username
 //PASSWORD - indicates currently getting password
+//POST - indicates currently making post request
+//POST_RESULT - displays result of making post requset - loops back to start if necessary
 //DONE - indicates we are done with both
-enum login_status {START, USERNAME, PASSWORD, DONE}; 
+
+uint32_t post_result_timer = 0;
+const uint32_t post_result_threshold = 2000;
+enum login_status {START, USERNAME, PASSWORD, POST, POST_RESULT, DONE}; 
 login_status login_state;
 
 Button button(BUTTON_PIN); //button object!
+
+void username_password_post() {
+    char body[1000]; //for body
+    sprintf(body, "username=%s&password=%s", username, password);
+    int len = strlen(body);
+    request[0] = '\0'; //set 0th byte to null
+    int offset = sprintf(request + offset, "POST %s?%s  HTTP/1.1\r\n", POST_URL, body);
+    offset += sprintf(request + offset, "Host: 608dev-2.net\r\n");
+    offset += sprintf(request + offset, "Content-Type: application/x-www-form-urlencoded\r\n");
+    offset += sprintf(request + offset, "cache-control: no-cache\r\n");
+    offset += sprintf(request + offset, "Content-Length: %d\r\n\r\n", len);
+    offset += sprintf(request + offset, "%s\r\n", body);
+    Serial.printf("Request: %s\n\n\n\n", request);
+    do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
+    Serial.printf("Response: %s", response);
+}
 
 void setup() {
   Serial.begin(115200); //for debugging if needed.
@@ -176,18 +193,17 @@ void setup() {
 void loop() {
   float x, y;
   get_angle(&x, &y); //get angle values
-  Serial.printf("x: %f, y: %f\n", x, y);
   int bv = button.update(); //get button value
-  Serial.printf("Current login_state is: %d\n", login_state);
   if(login_state == START){
     tft.fillScreen(TFT_BLACK);
     tft.setCursor(0, 0, 1);
-    tft.printf("Username: %s\nPassword:%s\n", username, password);
+    tft.printf("Username:%s\nPassword:%s\n", username, password);
     login_state = USERNAME;
   }else if(login_state == USERNAME){
     username_getter.update(y, bv, username);
     if(username_getter.is_done()){
       login_state = PASSWORD;
+      username_getter.reset();
     }
   }else if(login_state == PASSWORD){
     password_getter.update(y, bv, password);
@@ -195,26 +211,46 @@ void loop() {
       tft.fillScreen(TFT_BLACK);
       tft.setCursor(0, 0, 1);
       tft.printf("Sending data to server!");
-      login_state = DONE;
+      login_state = POST;
+      password_getter.reset();
+    }
+  }else if(login_state == POST){
+    //state is DONE
+    username_password_post();
+    //transition to POST_RESULT state and display post result
+    login_state = POST_RESULT;
+    post_result_timer = millis();
+    tft.fillScreen(TFT_BLACK);
+    tft.setCursor(0, 0, 1);
+    tft.printf("%s\n", response);
+    //if response is bad (wrong password) --> login_state = USERNAME, reset username and password strings
+    //else if response is good, (welcome back or welcome new user) --> login_state = DONE
+  }else if(login_state == POST_RESULT){
+    if(millis() - post_result_timer > post_result_threshold){
+      const char bad_response[] = "Incorrect password!\n";
+      Serial.printf("bad_resp len: %d\n", strlen(bad_response));
+      Serial.printf("resp len: %d\n", strlen(response));
+      Serial.printf("second to last char of response: %d\n", response[18]);
+      Serial.printf("last character of response: %d\n", response[19]);
+      if(strcmp(response, bad_response) == 0){
+        //reset username and password
+        sprintf(username, "");
+        sprintf(password, "");
+        //return to done state
+        login_state = START;
+        Serial.printf("bad password\n!");
+      }else{
+        login_state = DONE;
+        Serial.printf("good response!");
+      }
     }
   }else{
-    //state is DONE
-    char body[1000]; //for body
-    sprintf(body, "username=%s&password=%s", username, password);
-    int body_len = strlen(body); //calculate body length (for header reporting)
-    sprintf(request, POST_URL);
-    strcat(request, "Host: 608dev-2.net\r\n");
-    strcat(request, "Content-Type: application/x-www-form-urlencoded\r\n");
-    sprintf(request + strlen(request), "Content-Length: %d\r\n", body_len); //append string formatted to end of request buffer
-    strcat(request, "\r\n"); //new line from header to body
-    strcat(request, body); //body
-    strcat(request, "\r\n"); //new line
-    do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, true);
+    
   }
   if (strcmp(username, old_username) != 0 || strcmp(password, old_password)) {//only draw if changed!
     tft.fillScreen(TFT_BLACK);
     tft.setCursor(0, 0, 1);
-    tft.printf("Username: %s\nPassword:%s\n", username, password);
+    tft.printf("Username:%s\nPassword:%s\n", username, password);
   }
   strcpy(old_username, username);
   strcpy(old_password, password);

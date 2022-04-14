@@ -1,6 +1,7 @@
 #ifndef Button_h
 #define Button_h
 #include "Arduino.h"
+
 enum button_state {S0,S1,S2,S3,S4}; // S0 is unpressed, S1 is unstable press, S2 is short press, S3 is long press, S4 is unstable unpress
 class Button {
   public:
