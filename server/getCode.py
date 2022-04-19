@@ -12,7 +12,7 @@ def request_handler(request):
         try:
             user = request['form']['username']
             # insert_into_database(user)
-            create_code(user)
+            return create_code(user)
         except Exception as e:
             return "Error: username is missing"
     else:
@@ -21,6 +21,8 @@ def request_handler(request):
             user = search_code(code)
             if user is not None:
                 insert_into_pencil_database(user)
+                return "Unlocked!"
+            return "incorrect code"
         except Exception as e:
             return "Error: username is missing"
 
@@ -63,7 +65,7 @@ def search_code(code):
     conn = sqlite3.connect(pencil_data)
     c = conn.cursor()
     thirty_seconds_ago = datetime.datetime.now()- datetime.timedelta(seconds = 30) # create time for fifteen minutes ago!
-    c.execute('''SELECT user FROM code_data WHERE code = ? AND start > ?;''', (code, thirty_seconds_ago)).fetchone()
+    user = c.execute('''SELECT user FROM code_data WHERE code = ? AND start > ?;''', (code, thirty_seconds_ago)).fetchone()
     conn.commit()
     conn.close()
-    return code[0]
+    return user[0]
