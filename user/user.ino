@@ -145,6 +145,14 @@ enum login_status
 };
 login_status login_state;
 
+enum system_status
+{
+  LOGIN,
+  STATION_FINDER,
+  USER_STATS
+};
+system_status system_state;
+
 Button button(BUTTON_PIN); // button object!
 
 void username_password_post()
@@ -223,94 +231,109 @@ void setup()
   sprintf(old_password, "");
 
   login_state = START;
+  system_state = LOGIN;
 }
 
 void loop()
 {
-  float x, y;
-  get_angle(&x, &y);        // get angle values
-  int bv = button.update(); // get button value
-  if (login_state == START)
+  if (system_state == LOGIN)
   {
-    tft.fillScreen(TFT_BLACK);
-    tft.setCursor(0, 0, 1);
-    tft.printf("Username:%s\nPassword:%s\n", username, password);
-    login_state = USERNAME;
-  }
-  else if (login_state == USERNAME)
-  {
-    username_getter.update(y, bv, username);
-    if (username_getter.is_done())
-    {
-      login_state = PASSWORD;
-      username_getter.reset();
-    }
-  }
-  else if (login_state == PASSWORD)
-  {
-    password_getter.update(y, bv, password);
-    if (password_getter.is_done())
+    float x, y;
+    get_angle(&x, &y);        // get angle values
+    int bv = button.update(); // get button value
+    if (login_state == START)
     {
       tft.fillScreen(TFT_BLACK);
       tft.setCursor(0, 0, 1);
-      tft.printf("Sending data to server!");
-      login_state = POST;
-      password_getter.reset();
+      tft.printf("Username:%s\nPassword:%s\n", username, password);
+      login_state = USERNAME;
     }
-  }
-  else if (login_state == POST)
-  {
-    // state is DONE
-    username_password_post();
-    // transition to POST_RESULT state and display post result
-    login_state = POST_RESULT;
-    post_result_timer = millis();
-    tft.fillScreen(TFT_BLACK);
-    tft.setCursor(0, 0, 1);
-    tft.printf("%s\n", response);
-    // if response is bad (wrong password) --> login_state = USERNAME, reset username and password strings
-    // else if response is good, (welcome back or welcome new user) --> login_state = DONE
-  }
-  else if (login_state == POST_RESULT)
-  {
-    if (millis() - post_result_timer > post_result_threshold)
+    else if (login_state == USERNAME)
     {
-      const char bad_response[] = "Incorrect password!\n";
-      Serial.printf("bad_resp len: %d\n", strlen(bad_response));
-      Serial.printf("resp len: %d\n", strlen(response));
-      Serial.printf("second to last char of response: %d\n", response[18]);
-      Serial.printf("last character of response: %d\n", response[19]);
-      if (strcmp(response, bad_response) == 0)
+      username_getter.update(y, bv, username);
+      if (username_getter.is_done())
       {
-        // reset username and password
-        sprintf(username, "");
-        sprintf(password, "");
-        // return to done state
-        login_state = START;
-        Serial.printf("bad password\n!");
-      }
-      else
-      {
-        login_state = DONE;
-        Serial.printf("good response!");
+        login_state = PASSWORD;
+        username_getter.reset();
       }
     }
+    else if (login_state == PASSWORD)
+    {
+      password_getter.update(y, bv, password);
+      if (password_getter.is_done())
+      {
+        tft.fillScreen(TFT_BLACK);
+        tft.setCursor(0, 0, 1);
+        tft.printf("Sending data to server!");
+        login_state = POST;
+        password_getter.reset();
+      }
+    }
+    else if (login_state == POST)
+    {
+      // state is DONE
+      username_password_post();
+      // transition to POST_RESULT state and display post result
+      login_state = POST_RESULT;
+      post_result_timer = millis();
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0, 1);
+      tft.printf("%s\n", response);
+      // if response is bad (wrong password) --> login_state = USERNAME, reset username and password strings
+      // else if response is good, (welcome back or welcome new user) --> login_state = DONE
+    }
+    else if (login_state == POST_RESULT)
+    {
+      if (millis() - post_result_timer > post_result_threshold)
+      {
+        const char bad_response[] = "Incorrect password!\n";
+        Serial.printf("bad_resp len: %d\n", strlen(bad_response));
+        Serial.printf("resp len: %d\n", strlen(response));
+        Serial.printf("second to last char of response: %d\n", response[18]);
+        Serial.printf("last character of response: %d\n", response[19]);
+        if (strcmp(response, bad_response) == 0)
+        {
+          // reset username and password
+          sprintf(username, "");
+          sprintf(password, "");
+          // return to done state
+          login_state = START;
+          Serial.printf("bad password\n!");
+        }
+        else
+        {
+          login_state = DONE;
+          Serial.printf("good response!");
+        }
+      }
+    }
+    else if (login_state == DONE)
+    {
+      system_state = STATION_FINDER;
+    }
+    if (strcmp(username, old_username) != 0 || strcmp(password, old_password))
+    { // only draw if changed!
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0, 1);
+      tft.printf("Username:%s\nPassword:%s\n", username, password);
+    }
+    strcpy(old_username, username);
+    strcpy(old_password, password);
+    // memset(old_response, 0, sizeof(old_response));
+    // strcat(old_response, response);
   }
-  else
+  else if (system_state == STATION_FINDER)
   {
+    // when looking for a closer station
   }
-  if (strcmp(username, old_username) != 0 || strcmp(password, old_password))
-  { // only draw if changed!
-    tft.fillScreen(TFT_BLACK);
-    tft.setCursor(0, 0, 1);
-    tft.printf("Username:%s\nPassword:%s\n", username, password);
+  else if (system_state == USER_STATS)
+  {
+    // when looking for a closer station
   }
-  strcpy(old_username, username);
-  strcpy(old_password, password);
-  // memset(old_response, 0, sizeof(old_response));
-  // strcat(old_response, response);
+
   while (millis() - primary_timer < LOOP_PERIOD)
     ; // wait for primary timer to increment
+
   primary_timer = millis();
 }
 
