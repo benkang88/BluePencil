@@ -17,7 +17,7 @@ def request_handler(request):
             if code is None:
                 return "Station is empty"
             return code
-        except Exception as e:
+        except Exception:
             return "Error: username is missing"
     else:
         try:
@@ -28,7 +28,7 @@ def request_handler(request):
                 insert_into_pencil_database(user, station)
                 return "Unlocked!"
             return "incorrect code"
-        except Exception as e:
+        except Exception:
             return "Error: username is missing"
 
 def create_pencil_database():

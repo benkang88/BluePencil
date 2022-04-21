@@ -28,3 +28,4 @@ def insert_into_database(station, num_pencils):
     c.execute('''INSERT into station_data VALUES (?,?);''', (station, num_pencils)) # 
     conn.commit()
     conn.close()
+    return f"Station {station} with {num_pencils} pencils successfully added"
