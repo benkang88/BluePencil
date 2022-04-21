@@ -1,0 +1,33 @@
+USER:
+
+if(state is login){
+    do login stuff from last week
+}else if(state is search for station){
+    if(search_for_station_state is search){
+        every five seconds, POST location to location.py/lat=_&lon=_
+        POST request returns close stations
+        update tft display to show close locations
+        display allows users to cycle (up/down) among the different stations displayed on screen
+        if station is selected make GET request for station code (GET code.py/stationID), and set search_for_station_state = selected
+    }else if(search_for_station_state is found){
+        //stay in state for at most 30 seconds
+        display on tft: unlock code is + result of GET request
+    }
+}
+
+
+STATION:
+
+if(state is waiting_for_code){
+    wait for 3 digit code
+    if code is 3 digit code is successfully entered, 
+    boolean code_good_or_not <- GET request to to code_checker.py, return value is whether code was accepted or not
+    state <- code_entered
+}else if(state is code_entered){
+    if(code_good_or_not){
+        //code was code_good
+        unlock pencil
+    }else{
+        display "code was bad" on tft
+    }
+}
