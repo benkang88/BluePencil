@@ -9,7 +9,7 @@ if(state is login){
         update tft display to show close locations
         display allows users to cycle (up/down) among the different stations displayed on screen
         if station is selected make GET request for station code (GET code.py/stationID), and set search_for_station_state = selected
-    }else if(search_for_station_state is found){
+    }else if(search_for_station_state is selected){
         //stay in state for at most 30 seconds
         display on tft: unlock code is + result of GET request
     }
@@ -31,3 +31,5 @@ if(state is waiting_for_code){
         display "code was bad" on tft
     }
 }
+
+//for future, once code is successfully entered, POST that the code has been used
