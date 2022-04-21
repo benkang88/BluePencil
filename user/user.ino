@@ -190,7 +190,8 @@ system_status system_state;
 
 Button button(BUTTON_PIN); // button object!
 
-const int num_nearby_stations = 5 char nearby_stations[num_nearby_stations][100];
+const int num_nearby_stations = 5;
+char nearby_stations[num_nearby_stations][100];
 void clear_nearby_stations()
 {
   for (int i = 0; i < num_nearby_stations; i++)
@@ -201,14 +202,18 @@ void clear_nearby_stations()
 void update_nearby_stations()
 {
   clear_nearby_stations();
-  const float radius = 0.2;
-  sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/get_nearest_locations.py?radius=%f&lat=%f&lon=%f HTTP/1.1\r\n", radius, latitude, longitude);
+  sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/get_nearest_locations.py?lat=%f%&lon=%f&radius=100  HTTP/1.1\r\n", longitude, latitude);
+  // sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/get_nearest_locations.py?lat=%f%&lon=%f&radius=%f  HTTP/1.1\r\n", -71.095, 42.359, 100);
+  // Serial.printf("%s", request);
   strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
   strcat(request, "\r\n");
   sprintf(response, "");
   do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
-  // TODO update nearby stations
-  Serial.printf("response: %s", response);
+  Serial.println(longitude);
+  Serial.println(request);
+  Serial.println(latitude);
+  Serial.println(response);
+  nearby_stations[0] = "STATION";
 }
 
 void username_password_post()
