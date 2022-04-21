@@ -9,7 +9,7 @@ def request_handler(request):
             station = request['form']['station']
             num_pencils = int(request['form']['num_pencils'])
             return insert_into_database(station, num_pencils)
-        except Exception as e:
+        except Exception:
             return "Error: station or pencils is missing"
     else:
         return "No GETs"
