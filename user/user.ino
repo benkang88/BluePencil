@@ -311,7 +311,7 @@ void loop()
     {
       system_state = STATION_FINDER;
     }
-    if (strcmp(username, old_username) != 0 || strcmp(password, old_password))
+    if (strcmp(username, old_username) != 0 || strcmp(password, old_password) != 0)
     { // only draw if changed!
       tft.fillScreen(TFT_BLACK);
       tft.setCursor(0, 0, 1);
