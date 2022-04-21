@@ -251,6 +251,10 @@ void setup()
   login_state = START;
   system_state = LOGIN;
   station_state = WAITING_FOR_CODE_DIGIT_1;
+
+  tft.fillScreen(TFT_BLACK);
+  tft.setCursor(0, 0, 1);
+  tft.printf("Enter code: ");
 }
 
 bool valid_code = false;
@@ -260,11 +264,13 @@ int code_digit_3;
 
 bool check_input_code(int dig1, int dig2, int dig3) {
     sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/code_checker.py?station=%s&first=%d%&second=%d&third=%d  HTTP/1.1\r\n", STATION_NAME, dig1, dig2, dig3);
+    Serial.printf("%s", request);
     strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
     strcat(request, "\r\n");
     sprintf(response, "");
     do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
-    return (strcmp("yes", response)==0)? true:false;
+    response[3] = '\0';
+    return (strcmp("YES", response)==0)? true:false;
 }
 
 void loop()
@@ -322,6 +328,8 @@ void loop()
         if (valid_code) {
             Serial.println("unlock");
             station_state = UNLOCKED;
+            tft.fillScreen(TFT_BLACK);
+            tft.setCursor(0, 0, 1);
             tft.printf("UNLOCKED");
         } else {
             tft.fillScreen(TFT_BLACK);
