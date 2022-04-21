@@ -26,6 +26,7 @@ char POST_URL[] = "http://608dev-2.net/sandbox/sc/team39/login.py";
 const int RESPONSE_TIMEOUT = 6000;     // ms to wait for response from host
 const uint16_t IN_BUFFER_SIZE = 1000;  // size of buffer to hold HTTP request
 const uint16_t OUT_BUFFER_SIZE = 1000; // size of buffer to hold HTTP response
+const char STATION_NAME[] = "STATION";
 char request[IN_BUFFER_SIZE];
 char old_response[OUT_BUFFER_SIZE]; // char array buffer to hold HTTP request
 char response[OUT_BUFFER_SIZE];     // char array buffer to hold HTTP request
@@ -258,8 +259,7 @@ int code_digit_2;
 int code_digit_3;
 
 bool check_input_code(int dig1, int dig2, int dig3) {
-    int code = 100*dig1 + 10*dig2 + dig3;
-    sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/code_checker.py?code=%d  HTTP/1.1\r\n", code);
+    sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/code_checker.py?station=%s&first=%d%&second=%d&third=%d  HTTP/1.1\r\n", STATION_NAME, dig1, dig2, dig3);
     strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
     strcat(request, "\r\n");
     sprintf(response, "");
