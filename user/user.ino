@@ -1,9 +1,11 @@
 #include <WiFi.h> //Connect to WiFi Network
+#include <WiFiClientSecure.h>
 #include <SPI.h>
 #include <TFT_eSPI.h>
 #include <mpu6050_esp32.h>
 #include <math.h>
 #include <string.h>
+#include <ArduinoJson.h>
 #include "Button.h"
 
 TFT_eSPI tft = TFT_eSPI();
@@ -19,6 +21,16 @@ char wifi_password[] = ""; // Password for 6.08 Lab
 // char network[] = "EECS_Labs";  //SSID for .08 Lab
 // char wifi_password[] = ""; //Password for 6.08 Lab
 char POST_URL[] = "http://608dev-2.net/sandbox/sc/team39/login.py";
+
+// Prefix to POST request:
+const char PREFIX[] = "{\"wifiAccessPoints\": [";                 // beginning of json body
+const char SUFFIX[] = "]}";                                       // suffix to POST request
+const char API_KEY[] = "AIzaSyAQ9SzqkHhV-Gjv-71LohsypXUH447GWX8"; // don't change this and don't share this
+
+char *SERVER = "googleapis.com"; // Server URL
+
+WiFiClientSecure client; // global WiFiClient Secure object
+WiFiClient client2;      // global WiFiClient Secure object
 
 // Some constants and some resources:
 const int RESPONSE_TIMEOUT = 6000;     // ms to wait for response from host
@@ -145,10 +157,32 @@ enum login_status
 };
 login_status login_state;
 
+enum checkout_status
+{
+  SEARCH,
+  SELECTED
+};
+checkout_status checkout_state;
+uint32_t station_search_timer;
+const uint32_t station_search_period = 5000; // send out GET request for nearby stations every 5 seconds
+
+float longitude;
+float latitude;
+
+// // set latitude and longitude to current latitude and longitude
+// void get_latitude_and_longitude(float *longitude, float *latitude)
+// {
+// }
+
+// // location information
+// void get_nearby_stations(float *longitude, float *latitude);
+// {
+// }
+
 enum system_status
 {
   LOGIN,
-  STATION_FINDER,
+  CHECKOUT,
   USER_STATS
 };
 system_status system_state;
@@ -231,7 +265,10 @@ void setup()
   sprintf(old_password, "");
 
   login_state = START;
+  checkout_state = SEARCH;
   system_state = LOGIN;
+
+  station_search_timer = 0;
 }
 
 void loop()
@@ -247,7 +284,6 @@ void loop()
       tft.setCursor(0, 0, 1);
       tft.printf("Username:%s\nPassword:%s\n", username, password);
       login_state = USERNAME;
-      Serial.println("bruh");
     }
     else if (login_state == USERNAME)
     {
@@ -310,7 +346,7 @@ void loop()
     }
     else if (login_state == DONE)
     {
-      system_state = STATION_FINDER;
+      system_state = CHECKOUT;
     }
     if (strcmp(username, old_username) != 0 || strcmp(password, old_password) != 0)
     { // only draw if changed!
@@ -323,10 +359,16 @@ void loop()
     // memset(old_response, 0, sizeof(old_response));
     // strcat(old_response, response);
   }
-  else if (system_state == STATION_FINDER)
+  else if (system_state == CHECKOUT)
   {
-    // when looking for a closer station
-    
+    if (station_search_timer - millis() > station_search_period)
+    {
+      get_latitude_longitude(&latitude, &longitude);
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0, 1);
+      tft.printf("Current Location: \nLat: %f \nLon: %f \n", latitude, longitude);
+      station_search_timer = millis();
+    }
   }
   else if (system_state == USER_STATS)
   {
@@ -337,6 +379,100 @@ void loop()
     ; // wait for primary timer to increment
 
   primary_timer = millis();
+}
+
+/*----------------------------------
+   wifi_object_builder: generates a json-compatible entry for use with Google's geolocation API
+   Arguments:
+    * `char* object_string`: a char pointer to a location that can be used to build a c-string with a fully-contained JSON-compatible entry for one WiFi access point
+    *  `uint32_t os_len`: a variable informing the function how much  space is available in the buffer
+    * `uint8_t channel`: a value indicating the channel of WiFi operation (1 to 14)
+    * `int signal_strength`: the value in dBm of the Access point
+    * `uint8_t* mac_address`: a pointer to the six long array of `uint8_t` values that specifies the MAC address for the access point in question.
+
+      Return value:
+      the length of the object built. If not entry is written,
+*/
+int wifi_object_builder(char *object_string, uint32_t os_len, uint8_t channel, int signal_strength, uint8_t *mac_address)
+{
+  char new_object_string[300];
+  sprintf(new_object_string, "{\"macAddress\": \"%02x:%02x:%02x:%02x:%02x:%02x\",\"signalStrength\": %d,\"age\": 0,\"channel\": %d}", mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5], signal_strength, channel);
+  if (strlen(new_object_string) <= os_len)
+  {
+    strcpy(object_string, new_object_string);
+    return strlen(new_object_string);
+  }
+  else
+  {
+    return 0;
+  }
+}
+
+void get_latitude_longitude(float *latitude, float *longitude)
+{
+  char json_body[1000]; // for body
+  char pruned_response[OUT_BUFFER_SIZE];
+  const uint16_t JSON_BODY_SIZE = 3000;
+  const int MAX_APS = 5;
+  int offset = sprintf(json_body, "%s", PREFIX);
+  int n = WiFi.scanNetworks(); // run a new scan. could also modify to use original scan from setup so quicker (though older info)
+  Serial.println("scan done");
+  if (n == 0)
+  {
+    Serial.println("no networks found");
+  }
+  else
+  {
+    int max_aps = max(min(MAX_APS, n), 1);
+    for (int i = 0; i < max_aps; ++i)
+    {                                                                                                                           // for each valid access point
+      uint8_t *mac = WiFi.BSSID(i);                                                                                             // get the MAC Address
+      offset += wifi_object_builder(json_body + offset, JSON_BODY_SIZE - offset, WiFi.channel(i), WiFi.RSSI(i), WiFi.BSSID(i)); // generate the query
+      if (i != max_aps - 1)
+      {
+        offset += sprintf(json_body + offset, ","); // add comma between entries except trailing.
+      }
+    }
+    sprintf(json_body + offset, "%s", SUFFIX);
+    Serial.println(json_body);
+    int len = strlen(json_body);
+    // Make a HTTP request:
+    Serial.println("SENDING REQUEST");
+    request[0] = '\0'; // set 0th byte to null
+    offset = 0;        // reset offset variable for sprintf-ing
+    offset += sprintf(request + offset, "POST https://www.googleapis.com/geolocation/v1/geolocate?key=%s  HTTP/1.1\r\n", API_KEY);
+    offset += sprintf(request + offset, "Host: googleapis.com\r\n");
+    offset += sprintf(request + offset, "Content-Type: application/json\r\n");
+    offset += sprintf(request + offset, "cache-control: no-cache\r\n");
+    offset += sprintf(request + offset, "Content-Length: %d\r\n\r\n", len);
+    offset += sprintf(request + offset, "%s\r\n", json_body);
+    do_https_request(SERVER, request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
+    Serial.println("-----------");
+    Serial.println(response);
+    Serial.println("-----------");
+    int left_paren = '{';
+    int right_paren = '}';
+    char *left_loc = strchr(response, left_paren);
+    char *right_loc = strrchr(response, right_paren);
+    size_t length = right_loc - left_loc + 1;
+    memcpy(pruned_response, left_loc, length);
+    Serial.println(pruned_response);
+    // For Part Two of Lab04B, you should start working here. Create a DynamicJsonDoc of a reasonable size (few hundred bytes at least...)
+    StaticJsonDocument<200> doc;
+    DeserializationError error = deserializeJson(doc, pruned_response);
+    // Test if parsing succeeds.
+    if (error)
+    {
+      Serial.print(F("deserializeJson() failed: "));
+      Serial.println(error.f_str());
+      return;
+    }
+    *latitude = doc["location"]["lat"];
+    *longitude = doc["location"]["lng"];
+    // add blank line!
+    // submit to function that performs GET.  It will return output using response_buffer char array
+    Serial.printf("Current Location: \n Lat: %f \n Lon: %f \n", *latitude, *longitude);
+  }
 }
 
 /*----------------------------------
@@ -380,6 +516,91 @@ void do_http_request(char *host, char *request, char *response, uint16_t respons
       Serial.print(request); // Can do one-line if statements in C without curly braces
     client.print(request);
     memset(response, 0, response_size); // Null out (0 is the value of the null terminator '\0') entire buffer
+    uint32_t count = millis();
+    while (client.connected())
+    { // while we remain connected read out data coming back
+      client.readBytesUntil('\n', response, response_size);
+      if (serial)
+        Serial.println(response);
+      if (strcmp(response, "\r") == 0)
+      { // found a blank line!
+        break;
+      }
+      memset(response, 0, response_size);
+      if (millis() - count > response_timeout)
+        break;
+    }
+    memset(response, 0, response_size);
+    count = millis();
+    while (client.available())
+    { // read out remaining text (body of response)
+      char_append(response, client.read(), OUT_BUFFER_SIZE);
+    }
+    if (serial)
+      Serial.println(response);
+    client.stop();
+    if (serial)
+      Serial.println("-----------");
+  }
+  else
+  {
+    if (serial)
+      Serial.println("connection failed :/");
+    if (serial)
+      Serial.println("wait 0.5 sec...");
+    client.stop();
+  }
+}
+
+/*https communication requires certificates to be known ahead of time so each entity will trust one another.
+   This is a cert for google's generic servers below, allowing us to connect over https with their resources
+*/
+const char *CA_CERT =
+    "-----BEGIN CERTIFICATE-----\n"
+    "MIIDdTCCAl2gAwIBAgILBAAAAAABFUtaw5QwDQYJKoZIhvcNAQEFBQAwVzELMAkG\n"
+    "A1UEBhMCQkUxGTAXBgNVBAoTEEdsb2JhbFNpZ24gbnYtc2ExEDAOBgNVBAsTB1Jv\n"
+    "b3QgQ0ExGzAZBgNVBAMTEkdsb2JhbFNpZ24gUm9vdCBDQTAeFw05ODA5MDExMjAw\n"
+    "MDBaFw0yODAxMjgxMjAwMDBaMFcxCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBHbG9i\n"
+    "YWxTaWduIG52LXNhMRAwDgYDVQQLEwdSb290IENBMRswGQYDVQQDExJHbG9iYWxT\n"
+    "aWduIFJvb3QgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDaDuaZ\n"
+    "jc6j40+Kfvvxi4Mla+pIH/EqsLmVEQS98GPR4mdmzxzdzxtIK+6NiY6arymAZavp\n"
+    "xy0Sy6scTHAHoT0KMM0VjU/43dSMUBUc71DuxC73/OlS8pF94G3VNTCOXkNz8kHp\n"
+    "1Wrjsok6Vjk4bwY8iGlbKk3Fp1S4bInMm/k8yuX9ifUSPJJ4ltbcdG6TRGHRjcdG\n"
+    "snUOhugZitVtbNV4FpWi6cgKOOvyJBNPc1STE4U6G7weNLWLBYy5d4ux2x8gkasJ\n"
+    "U26Qzns3dLlwR5EiUWMWea6xrkEmCMgZK9FGqkjWZCrXgzT/LCrBbBlDSgeF59N8\n"
+    "9iFo7+ryUp9/k5DPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8E\n"
+    "BTADAQH/MB0GA1UdDgQWBBRge2YaRQ2XyolQL30EzTSo//z9SzANBgkqhkiG9w0B\n"
+    "AQUFAAOCAQEA1nPnfE920I2/7LqivjTFKDK1fPxsnCwrvQmeU79rXqoRSLblCKOz\n"
+    "yj1hTdNGCbM+w6DjY1Ub8rrvrTnhQ7k4o+YviiY776BQVvnGCv04zcQLcFGUl5gE\n"
+    "38NflNUVyRRBnMRddWQVDf9VMOyGj/8N7yy5Y0b2qvzfvGn9LhJIZJrglfCm7ymP\n"
+    "AbEVtQwdpf5pLGkkeB6zpxxxYu7KyJesF12KwvhHhm4qxFYxldBniYUr+WymXUad\n"
+    "DKqC5JlR3XC321Y9YeRq4VzW9v493kHMB65jUr9TU/Qr6cf9tveCX4XSQRjbgbME\n"
+    "HMUfpIBvFSDJ3gyICh3WZlXi/EjJKSZp4A==\n"
+    "-----END CERTIFICATE-----\n";
+
+/*----------------------------------
+   do_https_request Function. Similar to do_http_request, but supports https requests
+   Arguments:
+      char* host: null-terminated char-array containing host to connect to
+      char* request: null-terminated char-arry containing properly formatted HTTP request
+      char* response: char-array used as output for function to contain response
+      uint16_t response_size: size of response buffer (in bytes)
+      uint16_t response_timeout: duration we'll wait (in ms) for a response from server
+      uint8_t serial: used for printing debug information to terminal (true prints, false doesn't)
+   Return value:
+      void (none)
+*/
+void do_https_request(char *host, char *request, char *response, uint16_t response_size, uint16_t response_timeout, uint8_t serial)
+{
+  client.setHandshakeTimeout(30);
+  client.setCACert(CA_CERT); // set cert for https
+  if (client.connect(host, 443, 4000))
+  { // try to connect to host on port 443
+    if (serial)
+      Serial.print(request); // Can do one-line if statements in C without curly braces
+    client.print(request);
+    response[0] = '\0';
+    // memset(response, 0, response_size); //Null out (0 is the value of the null terminator '\0') entire buffer
     uint32_t count = millis();
     while (client.connected())
     { // while we remain connected read out data coming back
