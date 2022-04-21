@@ -165,6 +165,7 @@ enum checkout_status
 checkout_status checkout_state;
 uint32_t station_search_timer;
 const uint32_t station_search_period = 5000; // send out GET request for nearby stations every 5 seconds
+char selected_station[100];
 
 float longitude;
 float latitude;
@@ -189,21 +190,25 @@ system_status system_state;
 
 Button button(BUTTON_PIN); // button object!
 
-const int num_nearby_stations = 5
-char nearby_stations[num_nearby_stations][100];
-void clear_nearby_stations(){
-  for(int i=0;i<num_nearby_stations;i++){
+const int num_nearby_stations = 5 char nearby_stations[num_nearby_stations][100];
+void clear_nearby_stations()
+{
+  for (int i = 0; i < num_nearby_stations; i++)
+  {
     sprintf(nearby_stations[i], "");
   }
 }
-void update_nearby_stations(){
+void update_nearby_stations()
+{
   clear_nearby_stations();
-  // sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/code_checker.py?station=%s&first=%d%&second=%d&third=%d  HTTP/1.1\r\n", STATION_NAME, dig1, dig2, dig3);
-  // Serial.printf("%s", request);
-  // strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
-  // strcat(request, "\r\n");
-  // sprintf(response, "");
-  // do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
+  const float radius = 0.2;
+  sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/get_nearest_locations.py?radius=%f&lat=%f&lon=%f HTTP/1.1\r\n", radius, latitude, longitude);
+  strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
+  strcat(request, "\r\n");
+  sprintf(response, "");
+  do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
+  // TODO update nearby stations
+  Serial.printf("response: %s", response);
 }
 
 void username_password_post()
