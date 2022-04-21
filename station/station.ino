@@ -1,7 +1,9 @@
 #include <WiFi.h> //Connect to WiFi Network
+#include <WiFiClientSecure.h>
 #include <SPI.h>
 #include <TFT_eSPI.h>
 #include <mpu6050_esp32.h>
+#include <ArduinoJson.h>
 #include <math.h>
 #include <string.h>
 #include "Button.h"
@@ -14,8 +16,8 @@ const int BUTTON_PIN2 = 39;
 const int BUTTON_PIN3 = 34;
 const int LOOP_PERIOD = 40;
 const int POST_LOCATION_PERIOD = 60000;
-int lat;
-int lon;
+float lat;
+float lon;
 
 MPU6050 imu; // imu object called, appropriately, imu
 
@@ -24,6 +26,16 @@ char wifi_password[] = ""; // Password for 6.08 Lab
 // char network[] = "EECS_Labs";  //SSID for .08 Lab
 // char wifi_password[] = ""; //Password for 6.08 Lab
 char POST_URL[] = "http://608dev-2.net/sandbox/sc/team39/login.py";
+
+// Prefix to POST request:
+const char PREFIX[] = "{\"wifiAccessPoints\": [";                 // beginning of json body
+const char SUFFIX[] = "]}";                                       // suffix to POST request
+const char API_KEY[] = "AIzaSyAQ9SzqkHhV-Gjv-71LohsypXUH447GWX8"; // don't change this and don't share this
+
+char *SERVER = "googleapis.com"; // Server URL
+
+WiFiClientSecure client; // global WiFiClient Secure object
+WiFiClient client2;      // global WiFiClient Secure object
 
 // Some constants and some resources:
 const int RESPONSE_TIMEOUT = 6000;     // ms to wait for response from host
@@ -123,34 +135,6 @@ public:
   }
 };
 
-char old_username[100]; // for detecting changes
-char old_password[100]; // for detecting changes
-char username[100];     // for password string
-char password[100];     // for username string
-
-StringGetter username_getter; // wikipedia object
-StringGetter password_getter;
-
-// START - indicates both strings are empty
-// USERNAME - indicates currently getting username
-// PASSWORD - indicates currently getting password
-// POST - indicates currently making post request
-// POST_RESULT - displays result of making post requset - loops back to start if necessary
-// DONE - indicates we are done with both
-
-uint32_t post_result_timer = 0;
-const uint32_t post_result_threshold = 2000;
-enum login_status
-{
-  START,
-  USERNAME,
-  PASSWORD,
-  POST,
-  POST_RESULT,
-  DONE
-};
-login_status login_state;
-
 enum system_status
 {
   LOGIN,
@@ -162,23 +146,6 @@ system_status system_state;
 Button button1(BUTTON_PIN1); // button object!
 Button button2(BUTTON_PIN2);
 Button button3(BUTTON_PIN3);
-
-void username_password_post()
-{
-  char body[1000]; // for body
-  sprintf(body, "username=%s&password=%s", username, password);
-  int len = strlen(body);
-  request[0] = '\0'; // set 0th byte to null
-  int offset = sprintf(request + offset, "POST %s?%s  HTTP/1.1\r\n", POST_URL, body);
-  offset += sprintf(request + offset, "Host: 608dev-2.net\r\n");
-  offset += sprintf(request + offset, "Content-Type: application/x-www-form-urlencoded\r\n");
-  offset += sprintf(request + offset, "cache-control: no-cache\r\n");
-  offset += sprintf(request + offset, "Content-Length: %d\r\n\r\n", len);
-  offset += sprintf(request + offset, "%s\r\n", body);
-  Serial.printf("Request: %s\n\n\n\n", request);
-  do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
-  Serial.printf("Response: %s", response);
-}
 
 enum station_status
 {
@@ -245,14 +212,6 @@ void setup()
   ledcWrite(LCD_PWM, 1000);    // 0 is a 0% duty cycle for the PFET...increase if you'd like to dim the LCD.
   ledcAttachPin(LCD_CONTROL, LCD_PWM);
 
-  // initialize password and username to zero
-  sprintf(username, "");
-  sprintf(password, "");
-  sprintf(old_username, "");
-  sprintf(old_password, "");
-
-  login_state = START;
-  system_state = LOGIN;
   station_state = WAITING_FOR_CODE_DIGIT_1;
   post_location_timer = millis();
   lat = 0;
@@ -267,7 +226,8 @@ int code_digit_1;
 int code_digit_2;
 int code_digit_3;
 
-void post_location(float lat, float lon) {
+void post_location(float lat, float lon)
+{
   char body[1000]; // for body
   sprintf(body, "station=%s&lat=%f&lon=%f", STATION_NAME, lat, lon);
   int len = strlen(body);
@@ -284,202 +244,212 @@ void post_location(float lat, float lon) {
   Serial.printf("Response: %s", response);
 }
 
-bool check_input_code(int dig1, int dig2, int dig3) {
-    sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/code_checker.py?station=%s&first=%d%&second=%d&third=%d  HTTP/1.1\r\n", STATION_NAME, dig1, dig2, dig3);
-    Serial.printf("%s", request);
-    strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
-    strcat(request, "\r\n");
-    sprintf(response, "");
-    do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
-    response[3] = '\0';
-    return (strcmp("YES", response)==0)? true:false;
+bool check_input_code(int dig1, int dig2, int dig3)
+{
+  sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/code_checker.py?station=%s&first=%d%&second=%d&third=%d  HTTP/1.1\r\n", STATION_NAME, dig1, dig2, dig3);
+  Serial.printf("%s", request);
+  strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
+  strcat(request, "\r\n");
+  sprintf(response, "");
+  do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
+  response[3] = '\0';
+  return (strcmp("YES", response) == 0) ? true : false;
 }
 
 void loop()
 {
-    if (millis() - post_location_timer > POST_LOCATION_PERIOD) {
-      post_location(lat, lon);
-      post_location_timer = millis();
-    }
-    if (station_state == WAITING_FOR_CODE_DIGIT_1) {
-        if (button1.update() == 1) {
-            code_digit_1 = 1;
-            station_state = WAITING_FOR_CODE_DIGIT_2;
-            tft.fillScreen(TFT_BLACK);
-            tft.setCursor(0, 0, 1);
-            tft.printf("%d", code_digit_1);
-        } else if (button2.update() == 1) {
-            code_digit_1 = 2;
-            station_state = WAITING_FOR_CODE_DIGIT_2;
-            tft.fillScreen(TFT_BLACK);
-            tft.setCursor(0, 0, 1);
-            tft.printf("%d", code_digit_1);
-        } else if (button3.update() == 1) {
-            code_digit_1 = 3;
-            station_state = WAITING_FOR_CODE_DIGIT_2;
-            tft.fillScreen(TFT_BLACK);
-            tft.setCursor(0, 0, 1);
-            tft.printf("%d", code_digit_1);
-        }
-    } else if (station_state == WAITING_FOR_CODE_DIGIT_2) {
-        if (button1.update() == 1) {
-            code_digit_2 = 1;
-            station_state = WAITING_FOR_CODE_DIGIT_3;
-            tft.printf("%d", code_digit_2);
-        } else if (button2.update() == 1) {
-            code_digit_2 = 2;
-            station_state = WAITING_FOR_CODE_DIGIT_3;
-            tft.printf("%d", code_digit_2);
-        } else if (button3.update() == 1) {
-            code_digit_2 = 3;
-            station_state = WAITING_FOR_CODE_DIGIT_3;
-            tft.printf("%d", code_digit_2);
-        } 
-    } else if (station_state == WAITING_FOR_CODE_DIGIT_3) {
-        if (button1.update() == 1) {
-            code_digit_3 = 1;
-            station_state = CHECK_CODE;
-            tft.printf("%d", code_digit_3);
-        } else if (button2.update() == 1) {
-            code_digit_3 = 2;
-            station_state = CHECK_CODE;
-            tft.printf("%d", code_digit_3);
-        } else if (button3.update() == 1) {
-            code_digit_3 = 3;
-            station_state = CHECK_CODE;
-            tft.printf("%d", code_digit_3);
-        }
-    } else if (station_state == CHECK_CODE) {
-        valid_code = check_input_code(code_digit_1, code_digit_2, code_digit_3);
-        if (valid_code) {
-            Serial.println("unlock");
-            station_state = UNLOCKED;
-            tft.fillScreen(TFT_BLACK);
-            tft.setCursor(0, 0, 1);
-            tft.printf("UNLOCKED");
-        } else {
-            tft.fillScreen(TFT_BLACK);
-            tft.setCursor(0, 0, 1);
-            tft.printf("BAD CODE");
-            station_state = WAITING_FOR_CODE_DIGIT_1;
-        }
-    }
-    /*
-    if(state is waiting_for_code){
-    wait for 3 digit code
-    if code is 3 digit code is successfully entered, 
-    boolean code_good_or_not <- GET request to to code_checker.py, return value is whether code was accepted or not
-    state <- code_entered
-    }else if(state is code_entered){
-        if(code_good_or_not){
-            //code was code_good
-            unlock pencil
-        }else{
-            display "code was bad" on tft
-        }
-    }*/
-/*
-  if (system_state == LOGIN)
+  if (millis() - post_location_timer > POST_LOCATION_PERIOD)
   {
-    float x, y;
-    get_angle(&x, &y);        // get angle values
-    int bv = button1.update(); // get button value
-    if (login_state == START)
+    get_latitude_longitude(&lat, &lon);
+    post_location(lat, lon);
+    post_location_timer = millis();
+  }
+  if (station_state == WAITING_FOR_CODE_DIGIT_1)
+  {
+    if (button1.update() == 1)
+    {
+      code_digit_1 = 1;
+      station_state = WAITING_FOR_CODE_DIGIT_2;
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0, 1);
+      tft.printf("%d", code_digit_1);
+    }
+    else if (button2.update() == 1)
+    {
+      code_digit_1 = 2;
+      station_state = WAITING_FOR_CODE_DIGIT_2;
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0, 1);
+      tft.printf("%d", code_digit_1);
+    }
+    else if (button3.update() == 1)
+    {
+      code_digit_1 = 3;
+      station_state = WAITING_FOR_CODE_DIGIT_2;
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0, 1);
+      tft.printf("%d", code_digit_1);
+    }
+  }
+  else if (station_state == WAITING_FOR_CODE_DIGIT_2)
+  {
+    if (button1.update() == 1)
+    {
+      code_digit_2 = 1;
+      station_state = WAITING_FOR_CODE_DIGIT_3;
+      tft.printf("%d", code_digit_2);
+    }
+    else if (button2.update() == 1)
+    {
+      code_digit_2 = 2;
+      station_state = WAITING_FOR_CODE_DIGIT_3;
+      tft.printf("%d", code_digit_2);
+    }
+    else if (button3.update() == 1)
+    {
+      code_digit_2 = 3;
+      station_state = WAITING_FOR_CODE_DIGIT_3;
+      tft.printf("%d", code_digit_2);
+    }
+  }
+  else if (station_state == WAITING_FOR_CODE_DIGIT_3)
+  {
+    if (button1.update() == 1)
+    {
+      code_digit_3 = 1;
+      station_state = CHECK_CODE;
+      tft.printf("%d", code_digit_3);
+    }
+    else if (button2.update() == 1)
+    {
+      code_digit_3 = 2;
+      station_state = CHECK_CODE;
+      tft.printf("%d", code_digit_3);
+    }
+    else if (button3.update() == 1)
+    {
+      code_digit_3 = 3;
+      station_state = CHECK_CODE;
+      tft.printf("%d", code_digit_3);
+    }
+  }
+  else if (station_state == CHECK_CODE)
+  {
+    valid_code = check_input_code(code_digit_1, code_digit_2, code_digit_3);
+    if (valid_code)
+    {
+      Serial.println("unlock");
+      station_state = UNLOCKED;
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0, 1);
+      tft.printf("UNLOCKED");
+    }
+    else
     {
       tft.fillScreen(TFT_BLACK);
       tft.setCursor(0, 0, 1);
-      tft.printf("Username:%s\nPassword:%s\n", username, password);
-      login_state = USERNAME;
-      Serial.println("bruh");
+      tft.printf("BAD CODE");
+      station_state = WAITING_FOR_CODE_DIGIT_1;
     }
-    else if (login_state == USERNAME)
-    {
-      username_getter.update(y, bv, username);
-      if (username_getter.is_done())
-      {
-        login_state = PASSWORD;
-        username_getter.reset();
-      }
-    }
-    else if (login_state == PASSWORD)
-    {
-      password_getter.update(y, bv, password);
-      if (password_getter.is_done())
-      {
-        tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0, 1);
-        tft.printf("Sending data to server!");
-        login_state = POST;
-        password_getter.reset();
-      }
-    }
-    else if (login_state == POST)
-    {
-      // state is DONE
-      username_password_post();
-      // transition to POST_RESULT state and display post result
-      login_state = POST_RESULT;
-      post_result_timer = millis();
-      tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0, 1);
-      tft.printf("%s\n", response);
-      // if response is bad (wrong password) --> login_state = USERNAME, reset username and password strings
-      // else if response is good, (welcome back or welcome new user) --> login_state = DONE
-    }
-    else if (login_state == POST_RESULT)
-    {
-      if (millis() - post_result_timer > post_result_threshold)
-      {
-        const char bad_response[] = "Incorrect password!\n";
-        Serial.printf("bad_resp len: %d\n", strlen(bad_response));
-        Serial.printf("resp len: %d\n", strlen(response));
-        Serial.printf("second to last char of response: %d\n", response[18]);
-        Serial.printf("last character of response: %d\n", response[19]);
-        if (strcmp(response, bad_response) == 0)
-        {
-          // reset username and password
-          sprintf(username, "");
-          sprintf(password, "");
-          // return to done state
-          login_state = START;
-          Serial.printf("bad password\n!");
-        }
-        else
-        {
-          login_state = DONE;
-          Serial.printf("good response!");
-        }
-      }
-    }
-    else if (login_state == DONE)
-    {
-      system_state = STATION_FINDER;
-    }
-    if (strcmp(username, old_username) != 0 || strcmp(password, old_password) != 0)
-    { // only draw if changed!
-      tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0, 1);
-      tft.printf("Username:%s\nPassword:%s\n", username, password);
-    }
-    strcpy(old_username, username);
-    strcpy(old_password, password);
-    // memset(old_response, 0, sizeof(old_response));
-    // strcat(old_response, response);
   }
-  else if (system_state == STATION_FINDER)
-  {
-    // when looking for a closer station
-    
-  }
-  else if (system_state == USER_STATS)
-  {
-    // when looking for a closer station
-  }
-*/
   while (millis() - primary_timer < LOOP_PERIOD)
     ; // wait for primary timer to increment
 
   primary_timer = millis();
+}
+
+/*----------------------------------
+   wifi_object_builder: generates a json-compatible entry for use with Google's geolocation API
+   Arguments:
+    * `char* object_string`: a char pointer to a location that can be used to build a c-string with a fully-contained JSON-compatible entry for one WiFi access point
+    *  `uint32_t os_len`: a variable informing the function how much  space is available in the buffer
+    * `uint8_t channel`: a value indicating the channel of WiFi operation (1 to 14)
+    * `int signal_strength`: the value in dBm of the Access point
+    * `uint8_t* mac_address`: a pointer to the six long array of `uint8_t` values that specifies the MAC address for the access point in question.
+
+      Return value:
+      the length of the object built. If not entry is written,
+*/
+int wifi_object_builder(char *object_string, uint32_t os_len, uint8_t channel, int signal_strength, uint8_t *mac_address)
+{
+  char new_object_string[300];
+  sprintf(new_object_string, "{\"macAddress\": \"%02x:%02x:%02x:%02x:%02x:%02x\",\"signalStrength\": %d,\"age\": 0,\"channel\": %d}", mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5], signal_strength, channel);
+  if (strlen(new_object_string) <= os_len)
+  {
+    strcpy(object_string, new_object_string);
+    return strlen(new_object_string);
+  }
+  else
+  {
+    return 0;
+  }
+}
+
+void get_latitude_longitude(float *latitude, float *longitude)
+{
+  char json_body[1000]; // for body
+  char pruned_response[OUT_BUFFER_SIZE];
+  const uint16_t JSON_BODY_SIZE = 3000;
+  const int MAX_APS = 5;
+  int offset = sprintf(json_body, "%s", PREFIX);
+  int n = WiFi.scanNetworks(); // run a new scan. could also modify to use original scan from setup so quicker (though older info)
+  Serial.println("scan done");
+  if (n == 0)
+  {
+    Serial.println("no networks found");
+  }
+  else
+  {
+    int max_aps = max(min(MAX_APS, n), 1);
+    for (int i = 0; i < max_aps; ++i)
+    {                                                                                                                           // for each valid access point
+      uint8_t *mac = WiFi.BSSID(i);                                                                                             // get the MAC Address
+      offset += wifi_object_builder(json_body + offset, JSON_BODY_SIZE - offset, WiFi.channel(i), WiFi.RSSI(i), WiFi.BSSID(i)); // generate the query
+      if (i != max_aps - 1)
+      {
+        offset += sprintf(json_body + offset, ","); // add comma between entries except trailing.
+      }
+    }
+    sprintf(json_body + offset, "%s", SUFFIX);
+    Serial.println(json_body);
+    int len = strlen(json_body);
+    // Make a HTTP request:
+    Serial.println("SENDING REQUEST");
+    request[0] = '\0'; // set 0th byte to null
+    offset = 0;        // reset offset variable for sprintf-ing
+    offset += sprintf(request + offset, "POST https://www.googleapis.com/geolocation/v1/geolocate?key=%s  HTTP/1.1\r\n", API_KEY);
+    offset += sprintf(request + offset, "Host: googleapis.com\r\n");
+    offset += sprintf(request + offset, "Content-Type: application/json\r\n");
+    offset += sprintf(request + offset, "cache-control: no-cache\r\n");
+    offset += sprintf(request + offset, "Content-Length: %d\r\n\r\n", len);
+    offset += sprintf(request + offset, "%s\r\n", json_body);
+    do_https_request(SERVER, request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
+    Serial.println("-----------");
+    Serial.println(response);
+    Serial.println("-----------");
+    int left_paren = '{';
+    int right_paren = '}';
+    char *left_loc = strchr(response, left_paren);
+    char *right_loc = strrchr(response, right_paren);
+    size_t length = right_loc - left_loc + 1;
+    memcpy(pruned_response, left_loc, length);
+    Serial.println(pruned_response);
+    // For Part Two of Lab04B, you should start working here. Create a DynamicJsonDoc of a reasonable size (few hundred bytes at least...)
+    StaticJsonDocument<200> doc;
+    DeserializationError error = deserializeJson(doc, pruned_response);
+    // Test if parsing succeeds.
+    if (error)
+    {
+      Serial.print(F("deserializeJson() failed: "));
+      Serial.println(error.f_str());
+      return;
+    }
+    *latitude = doc["location"]["lat"];
+    *longitude = doc["location"]["lng"];
+    // add blank line!
+    // submit to function that performs GET.  It will return output using response_buffer char array
+    Serial.printf("Current Location: \n Lat: %f \n Lon: %f \n", *latitude, *longitude);
+  }
 }
 
 /*----------------------------------
@@ -523,6 +493,91 @@ void do_http_request(char *host, char *request, char *response, uint16_t respons
       Serial.print(request); // Can do one-line if statements in C without curly braces
     client.print(request);
     memset(response, 0, response_size); // Null out (0 is the value of the null terminator '\0') entire buffer
+    uint32_t count = millis();
+    while (client.connected())
+    { // while we remain connected read out data coming back
+      client.readBytesUntil('\n', response, response_size);
+      if (serial)
+        Serial.println(response);
+      if (strcmp(response, "\r") == 0)
+      { // found a blank line!
+        break;
+      }
+      memset(response, 0, response_size);
+      if (millis() - count > response_timeout)
+        break;
+    }
+    memset(response, 0, response_size);
+    count = millis();
+    while (client.available())
+    { // read out remaining text (body of response)
+      char_append(response, client.read(), OUT_BUFFER_SIZE);
+    }
+    if (serial)
+      Serial.println(response);
+    client.stop();
+    if (serial)
+      Serial.println("-----------");
+  }
+  else
+  {
+    if (serial)
+      Serial.println("connection failed :/");
+    if (serial)
+      Serial.println("wait 0.5 sec...");
+    client.stop();
+  }
+}
+
+/*https communication requires certificates to be known ahead of time so each entity will trust one another.
+   This is a cert for google's generic servers below, allowing us to connect over https with their resources
+*/
+const char *CA_CERT =
+    "-----BEGIN CERTIFICATE-----\n"
+    "MIIDdTCCAl2gAwIBAgILBAAAAAABFUtaw5QwDQYJKoZIhvcNAQEFBQAwVzELMAkG\n"
+    "A1UEBhMCQkUxGTAXBgNVBAoTEEdsb2JhbFNpZ24gbnYtc2ExEDAOBgNVBAsTB1Jv\n"
+    "b3QgQ0ExGzAZBgNVBAMTEkdsb2JhbFNpZ24gUm9vdCBDQTAeFw05ODA5MDExMjAw\n"
+    "MDBaFw0yODAxMjgxMjAwMDBaMFcxCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBHbG9i\n"
+    "YWxTaWduIG52LXNhMRAwDgYDVQQLEwdSb290IENBMRswGQYDVQQDExJHbG9iYWxT\n"
+    "aWduIFJvb3QgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDaDuaZ\n"
+    "jc6j40+Kfvvxi4Mla+pIH/EqsLmVEQS98GPR4mdmzxzdzxtIK+6NiY6arymAZavp\n"
+    "xy0Sy6scTHAHoT0KMM0VjU/43dSMUBUc71DuxC73/OlS8pF94G3VNTCOXkNz8kHp\n"
+    "1Wrjsok6Vjk4bwY8iGlbKk3Fp1S4bInMm/k8yuX9ifUSPJJ4ltbcdG6TRGHRjcdG\n"
+    "snUOhugZitVtbNV4FpWi6cgKOOvyJBNPc1STE4U6G7weNLWLBYy5d4ux2x8gkasJ\n"
+    "U26Qzns3dLlwR5EiUWMWea6xrkEmCMgZK9FGqkjWZCrXgzT/LCrBbBlDSgeF59N8\n"
+    "9iFo7+ryUp9/k5DPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8E\n"
+    "BTADAQH/MB0GA1UdDgQWBBRge2YaRQ2XyolQL30EzTSo//z9SzANBgkqhkiG9w0B\n"
+    "AQUFAAOCAQEA1nPnfE920I2/7LqivjTFKDK1fPxsnCwrvQmeU79rXqoRSLblCKOz\n"
+    "yj1hTdNGCbM+w6DjY1Ub8rrvrTnhQ7k4o+YviiY776BQVvnGCv04zcQLcFGUl5gE\n"
+    "38NflNUVyRRBnMRddWQVDf9VMOyGj/8N7yy5Y0b2qvzfvGn9LhJIZJrglfCm7ymP\n"
+    "AbEVtQwdpf5pLGkkeB6zpxxxYu7KyJesF12KwvhHhm4qxFYxldBniYUr+WymXUad\n"
+    "DKqC5JlR3XC321Y9YeRq4VzW9v493kHMB65jUr9TU/Qr6cf9tveCX4XSQRjbgbME\n"
+    "HMUfpIBvFSDJ3gyICh3WZlXi/EjJKSZp4A==\n"
+    "-----END CERTIFICATE-----\n";
+
+/*----------------------------------
+   do_https_request Function. Similar to do_http_request, but supports https requests
+   Arguments:
+      char* host: null-terminated char-array containing host to connect to
+      char* request: null-terminated char-arry containing properly formatted HTTP request
+      char* response: char-array used as output for function to contain response
+      uint16_t response_size: size of response buffer (in bytes)
+      uint16_t response_timeout: duration we'll wait (in ms) for a response from server
+      uint8_t serial: used for printing debug information to terminal (true prints, false doesn't)
+   Return value:
+      void (none)
+*/
+void do_https_request(char *host, char *request, char *response, uint16_t response_size, uint16_t response_timeout, uint8_t serial)
+{
+  client.setHandshakeTimeout(30);
+  client.setCACert(CA_CERT); // set cert for https
+  if (client.connect(host, 443, 4000))
+  { // try to connect to host on port 443
+    if (serial)
+      Serial.print(request); // Can do one-line if statements in C without curly braces
+    client.print(request);
+    response[0] = '\0';
+    // memset(response, 0, response_size); //Null out (0 is the value of the null terminator '\0') entire buffer
     uint32_t count = millis();
     while (client.connected())
     { // while we remain connected read out data coming back
