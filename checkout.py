@@ -86,3 +86,13 @@ def request_handler(request):
         real_lon = things[2]
         real_first = int(things[3])
         real_second = int(things[4])
+
+        dist = distance((lat, lon), (real_lat, real_lon))
+        if dist < 0.5 and first == real_first and second == real_second and third == real_third:
+            conn = sqlite3.connect(checkout_db)
+            c = conn.cursor()
+            c.execute('''CREATE TABLE IF NOT EXISTS pencil_table (user text, start timestamp);''')
+            c.execute('''INSERT into pencil_table VALUES (?,?);''', (user, datetime.datetime.now())) # pencil is now being borrowed
+            conn.commit()
+            conn.close()
+            return "Success!"
