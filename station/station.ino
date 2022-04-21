@@ -11,7 +11,7 @@ const int SCREEN_HEIGHT = 160;
 const int SCREEN_WIDTH = 128;
 const int BUTTON_PIN1 = 45;
 const int BUTTON_PIN2 = 39;
-const int BUTTON_PIN3 = 38;
+const int BUTTON_PIN3 = 34;
 const int LOOP_PERIOD = 40;
 
 MPU6050 imu; // imu object called, appropriately, imu
@@ -320,7 +320,7 @@ void loop()
     } else if (station_state == CHECK_CODE) {
         valid_code = check_input_code(code_digit_1, code_digit_2, code_digit_3);
         if (valid_code) {
-            Serial.println('unlock');
+            Serial.println("unlock");
             station_state = UNLOCKED;
             tft.printf("UNLOCKED");
         } else {
