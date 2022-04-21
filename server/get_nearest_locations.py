@@ -2,6 +2,7 @@ import sqlite3
 location_db = '/var/jail/home/team39/databases/location.db'
 
 def request_handler(request):
+    #question, what does post do? 
     if request["method"] == "POST":
         lat = 0
         lon = 0
