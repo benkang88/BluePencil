@@ -247,6 +247,7 @@ void loop()
       tft.setCursor(0, 0, 1);
       tft.printf("Username:%s\nPassword:%s\n", username, password);
       login_state = USERNAME;
+      Serial.println("bruh");
     }
     else if (login_state == USERNAME)
     {
@@ -325,6 +326,7 @@ void loop()
   else if (system_state == STATION_FINDER)
   {
     // when looking for a closer station
+    
   }
   else if (system_state == USER_STATS)
   {
