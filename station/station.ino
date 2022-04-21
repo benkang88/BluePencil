@@ -13,6 +13,9 @@ const int BUTTON_PIN1 = 45;
 const int BUTTON_PIN2 = 39;
 const int BUTTON_PIN3 = 34;
 const int LOOP_PERIOD = 40;
+const int POST_LOCATION_PERIOD = 60000;
+int lat;
+int lon;
 
 MPU6050 imu; // imu object called, appropriately, imu
 
@@ -187,7 +190,7 @@ enum station_status
   UNLOCKED
 };
 station_status station_state;
-
+int post_location_timer;
 void setup()
 {
   Serial.begin(115200);               // for debugging if needed.
@@ -251,7 +254,9 @@ void setup()
   login_state = START;
   system_state = LOGIN;
   station_state = WAITING_FOR_CODE_DIGIT_1;
-
+  post_location_timer = millis();
+  lat = 0;
+  lon = 0;
   tft.fillScreen(TFT_BLACK);
   tft.setCursor(0, 0, 1);
   tft.printf("Enter code: ");
@@ -261,6 +266,23 @@ bool valid_code = false;
 int code_digit_1;
 int code_digit_2;
 int code_digit_3;
+
+void post_location(float lat, float lon) {
+  char body[1000]; // for body
+  sprintf(body, "station=%s&lat=%f&lon=%f", STATION_NAME, lat, lon);
+  int len = strlen(body);
+  request[0] = '\0'; // set 0th byte to null
+  int offset = sprintf(request + offset, "POST %s?%s  HTTP/1.1\r\n", "http://608dev-2.net/sandbox/sc/team39/get_nearest_locations.py", body);
+  offset += sprintf(request + offset, "Host: 608dev-2.net\r\n");
+  offset += sprintf(request + offset, "Content-Type: application/x-www-form-urlencoded\r\n");
+  offset += sprintf(request + offset, "cache-control: no-cache\r\n");
+  offset += sprintf(request + offset, "Content-Length: %d\r\n\r\n", len);
+  offset += sprintf(request + offset, "%s\r\n", body);
+  Serial.printf("Request: %s\n\n\n\n", request);
+  sprintf(response, "");
+  do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
+  Serial.printf("Response: %s", response);
+}
 
 bool check_input_code(int dig1, int dig2, int dig3) {
     sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/code_checker.py?station=%s&first=%d%&second=%d&third=%d  HTTP/1.1\r\n", STATION_NAME, dig1, dig2, dig3);
@@ -275,6 +297,10 @@ bool check_input_code(int dig1, int dig2, int dig3) {
 
 void loop()
 {
+    if (millis() - post_location_timer > POST_LOCATION_PERIOD) {
+      post_location(lat, lon);
+      post_location_timer = millis();
+    }
     if (station_state == WAITING_FOR_CODE_DIGIT_1) {
         if (button1.update() == 1) {
             code_digit_1 = 1;
