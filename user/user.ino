@@ -166,19 +166,10 @@ checkout_status checkout_state;
 uint32_t station_search_timer;
 const uint32_t station_search_period = 5000; // send out GET request for nearby stations every 5 seconds
 char selected_station[100];
+int num_nearby_stations = 0;
 
 float longitude;
 float latitude;
-
-// // set latitude and longitude to current latitude and longitude
-// void get_latitude_and_longitude(float *longitude, float *latitude)
-// {
-// }
-
-// // location information
-// void get_nearby_stations(float *longitude, float *latitude);
-// {
-// }
 
 enum system_status
 {
@@ -190,19 +181,36 @@ system_status system_state;
 
 Button button(BUTTON_PIN); // button object!
 
-const int num_nearby_stations = 5;
-char nearby_stations[num_nearby_stations][100];
+const int max_nearby_stations = 5;
+char nearby_stations[max_nearby_stations][100];
+int station_select = 0;
+
 void clear_nearby_stations()
 {
-  for (int i = 0; i < num_nearby_stations; i++)
+  for (int i = 0; i < max_nearby_stations; i++)
   {
     sprintf(nearby_stations[i], "");
   }
 }
+
+// returns number of non-empty strings in nearby_stations
+int get_number_nearby_stations()
+{
+  int count;
+  for (count = 0; count < max_nearby_stations; count++)
+  {
+    if (strlen(nearby_stations[count]) == 0)
+    {
+      break;
+    }
+  }
+  Serial.printf("number of nearby stations: %d\n", count);
+  return count;
+}
 void update_nearby_stations()
 {
   clear_nearby_stations();
-  sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/get_nearest_locations.py?lat=%f%&lon=%f&radius=100  HTTP/1.1\r\n", longitude, latitude);
+  sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/get_nearest_locations.py?lat=%f%&lon=%f&radius=100  HTTP/1.1\r\n", latitude, longitude);
   // sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/get_nearest_locations.py?lat=%f%&lon=%f&radius=%f  HTTP/1.1\r\n", -71.095, 42.359, 100);
   // Serial.printf("%s", request);
   strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
@@ -213,7 +221,40 @@ void update_nearby_stations()
   Serial.println(request);
   Serial.println(latitude);
   Serial.println(response);
-  nearby_stations[0] = "STATION";
+  sprintf(nearby_stations[0], "STATION");
+  num_nearby_stations = get_number_nearby_stations();
+  if (num_nearby_stations == 0)
+  {
+    station_select = 0;
+  }
+  else
+  {
+    station_select %= num_nearby_stations;
+  }
+}
+void display_nearby_stations()
+{
+  Serial.printf("Displaying nearby stations!\n");
+  Serial.printf("station_select: %d\n", station_select);
+  tft.fillScreen(TFT_BLACK);
+  tft.setCursor(0, 0, 1);
+  if (num_nearby_stations == 0)
+  {
+    tft.printf("No nearby stations!\n");
+  }
+  else
+  {
+    tft.printf("Nearby stations:\n");
+    for (int i = 0; i < num_nearby_stations; i++)
+    {
+      tft.printf("%s ", nearby_stations[i]);
+      if (station_select == i)
+      {
+        tft.printf("[*]");
+      }
+      tft.printf("\n");
+    }
+  }
 }
 
 void username_password_post()
@@ -300,11 +341,11 @@ void setup()
 
 void loop()
 {
+  int bv = button.update(); // get button value
   if (system_state == LOGIN)
   {
     float x, y;
-    get_angle(&x, &y);        // get angle values
-    int bv = button.update(); // get button value
+    get_angle(&x, &y); // get angle values
     if (login_state == START)
     {
       tft.fillScreen(TFT_BLACK);
@@ -392,10 +433,30 @@ void loop()
     {
       get_latitude_longitude(&latitude, &longitude);
       update_nearby_stations();
+      display_nearby_stations();
+      station_search_timer = millis();
+    }
+    if (checkout_state == SEARCH)
+    {
+      Serial.printf("currently in SEARCH\n");
+      if (bv == 1)
+      {
+        Serial.printf("button is 1\n");
+        station_select = (num_nearby_stations == 0) ? 0 : (station_select + 1) % num_nearby_stations;
+        display_nearby_stations();
+      }
+      else if (bv == 2)
+      {
+        Serial.printf("button is 2\n");
+        sprintf(selected_station, "%s", nearby_stations[station_select]);
+        checkout_state = SELECTED;
+      }
+    }
+    else if (checkout_state == SELECTED)
+    {
       tft.fillScreen(TFT_BLACK);
       tft.setCursor(0, 0, 1);
-      tft.printf("Current Location: \nLat: %f \nLon: %f \n", latitude, longitude);
-      station_search_timer = millis();
+      tft.printf("Station selected: %s", selected_station);
     }
   }
   else if (system_state == USER_STATS)

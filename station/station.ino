@@ -261,8 +261,7 @@ void loop()
   if (millis() - post_location_timer > POST_LOCATION_PERIOD)
   {
     get_latitude_longitude(&lat, &lon);
-    g
-        post_location(lat, lon);
+    post_location(lat, lon);
     post_location_timer = millis();
   }
   if (station_state == WAITING_FOR_CODE_DIGIT_1)
