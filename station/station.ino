@@ -16,7 +16,7 @@ const int BUTTON_PIN2 = 39;
 const int BUTTON_PIN3 = 34;
 const int LOOP_PERIOD = 40;
 const int POST_LOCATION_PERIOD = 60000;
-const int ROTATION_PERIOD = 3000;
+const int ROTATION_PERIOD = 300;
 float lat;
 float lon;
 
@@ -338,7 +338,6 @@ void loop()
     {
       code_digit_3 = 3;
       station_state = CHECK_CODE;
-      rotation_timer = millis();
       tft.printf("%d", code_digit_3);
     }
   }
@@ -349,14 +348,10 @@ void loop()
     {
       Serial.println("unlock");
       station_state = UNLOCKED;
+      rotation_timer = millis();
       tft.fillScreen(TFT_BLACK);
       tft.setCursor(0, 0, 1);
       tft.printf("UNLOCKED");
-      if(millis() - rotation_timer > ROTATION_PERIOD){
-        digitalWrite(MOTOR1, LOW);
-        digitalWrite(MOTOR2, LOW);
-        station_state = WAITING_FOR_CODE_DIGIT_1;
-      }
       digitalWrite(MOTOR1, HIGH);
       digitalWrite(MOTOR2, LOW);
     }
@@ -366,6 +361,17 @@ void loop()
       tft.setCursor(0, 0, 1);
       tft.printf("BAD CODE");
       station_state = WAITING_FOR_CODE_DIGIT_1;
+    }
+  }
+  else if (station_state == UNLOCKED)
+  {
+    if(millis() - rotation_timer > ROTATION_PERIOD){
+      digitalWrite(MOTOR1, LOW);
+      digitalWrite(MOTOR2, LOW);
+      station_state = WAITING_FOR_CODE_DIGIT_1;
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0, 1);
+      tft.printf("Enter code: ");
     }
   }
   while (millis() - primary_timer < LOOP_PERIOD)
