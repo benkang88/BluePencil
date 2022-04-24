@@ -21,10 +21,10 @@ float lon;
 
 MPU6050 imu; // imu object called, appropriately, imu
 
-char network[] = "MIT";    // SSID for .08 Lab
-char wifi_password[] = ""; // Password for 6.08 Lab
-// char network[] = "EECS_Labs";  //SSID for .08 Lab
-// char wifi_password[] = ""; //Password for 6.08 Lab
+// char network[] = "MIT";    // SSID for .08 Lab
+// char wifi_password[] = ""; // Password for 6.08 Lab
+char network[] = "EECS_Labs";  //SSID for .08 Lab
+char wifi_password[] = ""; //Password for 6.08 Lab
 char POST_URL[] = "http://608dev-2.net/sandbox/sc/team39/login.py";
 
 // Prefix to POST request:

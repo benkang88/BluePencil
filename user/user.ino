@@ -160,11 +160,15 @@ login_status login_state;
 enum checkout_status
 {
   SEARCH,
-  SELECTED
+  SELECTED,
+  DISPLAY_CODE
 };
 checkout_status checkout_state;
 uint32_t station_search_timer;
-const uint32_t station_search_period = 5000; // send out GET request for nearby stations every 5 seconds
+uint32_t fetch_code_timer;
+const uint32_t fetch_code_wait = 2000; // time to wait while geting code request
+char unlock_code[10];
+const uint32_t station_search_period = 15000; // send out GET request for nearby stations every 5 seconds
 char selected_station[100];
 int num_nearby_stations = 0;
 
@@ -204,7 +208,7 @@ int get_number_nearby_stations()
       break;
     }
   }
-  Serial.printf("number of nearby stations: %d\n", count);
+  // Serial.printf("number of nearby stations: %d\n", count);
   return count;
 }
 void update_nearby_stations()
@@ -217,10 +221,10 @@ void update_nearby_stations()
   strcat(request, "\r\n");
   sprintf(response, "");
   do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
-  Serial.println(longitude);
-  Serial.println(request);
-  Serial.println(latitude);
-  Serial.println(response);
+  // Serial.println(longitude);
+  // Serial.println(request);
+  // Serial.println(latitude);
+  // Serial.println(response);
   sprintf(nearby_stations[0], "STATION");
   num_nearby_stations = get_number_nearby_stations();
   if (num_nearby_stations == 0)
@@ -234,8 +238,8 @@ void update_nearby_stations()
 }
 void display_nearby_stations()
 {
-  Serial.printf("Displaying nearby stations!\n");
-  Serial.printf("station_select: %d\n", station_select);
+  // Serial.printf("Displaying nearby stations!\n");
+  // Serial.printf("station_select: %d\n", station_select);
   tft.fillScreen(TFT_BLACK);
   tft.setCursor(0, 0, 1);
   if (num_nearby_stations == 0)
@@ -255,6 +259,17 @@ void display_nearby_stations()
       tft.printf("\n");
     }
   }
+}
+
+void get_unlock_code(char selected_station[])
+{
+  sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/get_code.py?user=%s&station=%s  HTTP/1.1\r\n", username, selected_station);
+  strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
+  strcat(request, "\r\n");
+  sprintf(response, "");
+  do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
+  printf("response is: %s\n", response);
+  sprintf(unlock_code, response);
 }
 
 void username_password_post()
@@ -342,6 +357,7 @@ void setup()
 void loop()
 {
   int bv = button.update(); // get button value
+  // Serial.printf("Current button value is: %d\n", bv);
   if (system_state == LOGIN)
   {
     float x, y;
@@ -392,10 +408,10 @@ void loop()
       if (millis() - post_result_timer > post_result_threshold)
       {
         const char bad_response[] = "Incorrect password!\n";
-        Serial.printf("bad_resp len: %d\n", strlen(bad_response));
-        Serial.printf("resp len: %d\n", strlen(response));
-        Serial.printf("second to last char of response: %d\n", response[18]);
-        Serial.printf("last character of response: %d\n", response[19]);
+        // Serial.printf("bad_resp len: %d\n", strlen(bad_response));
+        // Serial.printf("resp len: %d\n", strlen(response));
+        // Serial.printf("second to last char of response: %d\n", response[18]);
+        // Serial.printf("last character of response: %d\n", response[19]);
         if (strcmp(response, bad_response) == 0)
         {
           // reset username and password
@@ -429,16 +445,18 @@ void loop()
   }
   else if (system_state == CHECKOUT)
   {
-    if (station_search_timer - millis() > station_search_period)
-    {
-      get_latitude_longitude(&latitude, &longitude);
-      update_nearby_stations();
-      display_nearby_stations();
-      station_search_timer = millis();
-    }
+    Serial.printf("Current button value is: %d\n", bv);
     if (checkout_state == SEARCH)
     {
-      Serial.printf("currently in SEARCH\n");
+      if (millis() - station_search_timer > station_search_period)
+      {
+        Serial.printf("doing GET stuff now at %d\n", millis());
+        get_latitude_longitude(&latitude, &longitude);
+        update_nearby_stations();
+        display_nearby_stations();
+        station_search_timer = millis();
+      }
+      // Serial.printf("Current button value is: %d\n", bv);
       if (bv == 1)
       {
         Serial.printf("button is 1\n");
@@ -449,14 +467,24 @@ void loop()
       {
         Serial.printf("button is 2\n");
         sprintf(selected_station, "%s", nearby_stations[station_select]);
+        Serial.printf("station is now: %s\n", selected_station);
         checkout_state = SELECTED;
+        fetch_code_timer = millis();
+        tft.fillScreen(TFT_BLACK);
+        tft.setCursor(0, 0, 1);
+        tft.printf("Fetching code for station: %s", selected_station);
+        get_unlock_code(selected_station);
       }
     }
     else if (checkout_state == SELECTED)
     {
-      tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0, 1);
-      tft.printf("Station selected: %s", selected_station);
+      if (millis() - fetch_code_timer > fetch_code_wait)
+      {
+        checkout_state == DISPLAY_CODE;
+      }
+    }
+    else if (checkout_state == DISPLAY_CODE)
+    {
     }
   }
   else if (system_state == USER_STATS)
@@ -505,7 +533,7 @@ void get_latitude_longitude(float *latitude, float *longitude)
   const int MAX_APS = 5;
   int offset = sprintf(json_body, "%s", PREFIX);
   int n = WiFi.scanNetworks(); // run a new scan. could also modify to use original scan from setup so quicker (though older info)
-  Serial.println("scan done");
+  // Serial.println("scan done");
   if (n == 0)
   {
     Serial.println("no networks found");
@@ -523,10 +551,10 @@ void get_latitude_longitude(float *latitude, float *longitude)
       }
     }
     sprintf(json_body + offset, "%s", SUFFIX);
-    Serial.println(json_body);
+    // Serial.println(json_body);
     int len = strlen(json_body);
     // Make a HTTP request:
-    Serial.println("SENDING REQUEST");
+    // Serial.println("SENDING REQUEST");
     request[0] = '\0'; // set 0th byte to null
     offset = 0;        // reset offset variable for sprintf-ing
     offset += sprintf(request + offset, "POST https://www.googleapis.com/geolocation/v1/geolocate?key=%s  HTTP/1.1\r\n", API_KEY);
@@ -536,16 +564,16 @@ void get_latitude_longitude(float *latitude, float *longitude)
     offset += sprintf(request + offset, "Content-Length: %d\r\n\r\n", len);
     offset += sprintf(request + offset, "%s\r\n", json_body);
     do_https_request(SERVER, request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
-    Serial.println("-----------");
-    Serial.println(response);
-    Serial.println("-----------");
+    // Serial.println("-----------");
+    // Serial.println(response);
+    // Serial.println("-----------");
     int left_paren = '{';
     int right_paren = '}';
     char *left_loc = strchr(response, left_paren);
     char *right_loc = strrchr(response, right_paren);
     size_t length = right_loc - left_loc + 1;
     memcpy(pruned_response, left_loc, length);
-    Serial.println(pruned_response);
+    // Serial.println(pruned_response);
     // For Part Two of Lab04B, you should start working here. Create a DynamicJsonDoc of a reasonable size (few hundred bytes at least...)
     StaticJsonDocument<200> doc;
     DeserializationError error = deserializeJson(doc, pruned_response);
@@ -560,7 +588,7 @@ void get_latitude_longitude(float *latitude, float *longitude)
     *longitude = doc["location"]["lng"];
     // add blank line!
     // submit to function that performs GET.  It will return output using response_buffer char array
-    Serial.printf("Current Location: \n Lat: %f \n Lon: %f \n", *latitude, *longitude);
+    // Serial.printf("Current Location: \n Lat: %f \n Lon: %f \n", *latitude, *longitude);
   }
 }
 
