@@ -16,6 +16,7 @@ const int BUTTON_PIN2 = 39;
 const int BUTTON_PIN3 = 34;
 const int LOOP_PERIOD = 40;
 const int POST_LOCATION_PERIOD = 60000;
+const int ROTATION_PERIOD = 300;
 float lat;
 float lon;
 
@@ -49,12 +50,16 @@ char response[OUT_BUFFER_SIZE];     // char array buffer to hold HTTP request
 // pins for LCD and AUDIO CONTROL
 uint8_t LCD_CONTROL = 21;
 uint8_t AUDIO_TRANSDUCER = 14;
+uint8_t MOTOR1 = 11; 
+uint8_t MOTOR2 = 10;
 
 // PWM Channels. The LCD will still be controlled by channel 0, we'll use channel 1 for audio generation
 uint8_t LCD_PWM = 0;
 uint8_t AUDIO_PWM = 1;
+// uint8_t MOTOR_PWM = 2;
 
 uint32_t primary_timer;
+uint32_t rotation_timer;
 
 int old_val;
 
@@ -211,6 +216,9 @@ void setup()
   ledcSetup(LCD_PWM, 100, 12); // 12 bits of PWM precision
   ledcWrite(LCD_PWM, 1000);    // 0 is a 0% duty cycle for the PFET...increase if you'd like to dim the LCD.
   ledcAttachPin(LCD_CONTROL, LCD_PWM);
+  pinMode(MOTOR1, OUTPUT);
+  pinMode(MOTOR2, OUTPUT);
+
 
   station_state = WAITING_FOR_CODE_DIGIT_1;
   post_location_timer = millis();
@@ -340,9 +348,12 @@ void loop()
     {
       Serial.println("unlock");
       station_state = UNLOCKED;
+      rotation_timer = millis();
       tft.fillScreen(TFT_BLACK);
       tft.setCursor(0, 0, 1);
       tft.printf("UNLOCKED");
+      digitalWrite(MOTOR1, HIGH);
+      digitalWrite(MOTOR2, LOW);
     }
     else
     {
@@ -350,6 +361,17 @@ void loop()
       tft.setCursor(0, 0, 1);
       tft.printf("BAD CODE");
       station_state = WAITING_FOR_CODE_DIGIT_1;
+    }
+  }
+  else if (station_state == UNLOCKED)
+  {
+    if(millis() - rotation_timer > ROTATION_PERIOD){
+      digitalWrite(MOTOR1, LOW);
+      digitalWrite(MOTOR2, LOW);
+      station_state = WAITING_FOR_CODE_DIGIT_1;
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0, 1);
+      tft.printf("Enter code: ");
     }
   }
   while (millis() - primary_timer < LOOP_PERIOD)
