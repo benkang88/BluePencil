@@ -250,7 +250,7 @@ void display_nearby_stations()
   // Serial.printf("Displaying nearby stations!\n");
   // Serial.printf("station_select: %d\n", station_select);
   tft.fillScreen(TFT_BLACK);
-  tft.setCursor(0, 0, 1);
+  tft.setCursor(30, 50, 2);
   if (num_nearby_stations == 0)
   {
     tft.printf("No nearby stations!\n");
