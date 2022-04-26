@@ -48,6 +48,9 @@ uint8_t AUDIO_TRANSDUCER = 14;
 uint8_t LCD_PWM = 0;
 uint8_t AUDIO_PWM = 1;
 
+const int HEIGHT = 159;
+const int WIDTH = 127;
+
 uint32_t primary_timer;
 
 int old_val;
@@ -177,11 +180,17 @@ float latitude;
 
 enum system_status
 {
+  STARTUP,
   LOGIN,
   CHECKOUT,
-  USER_STATS
+  USER_STATS,
+  CREDITS
 };
 system_status system_state;
+
+uint32_t startup_time = 4000; // time in ms to display startup sequence
+uint32_t startup_timer;
+bool startup = false;
 
 Button button(BUTTON_PIN); // button object!
 
@@ -331,7 +340,7 @@ void setup()
   tft.setRotation(2);
   tft.setTextSize(1);
   tft.fillScreen(TFT_BLACK);
-  tft.setTextColor(TFT_GREEN, TFT_BLACK); // set color of font to green foreground, black background
+  tft.setTextColor(TFT_BLUE, TFT_BLACK); // set color of font to green foreground, black background
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   primary_timer = millis();
 
@@ -349,15 +358,28 @@ void setup()
 
   login_state = START;
   checkout_state = SEARCH;
-  system_state = LOGIN;
+  system_state = STARTUP;
 
   station_search_timer = 0;
+  startup_timer = millis();
 }
 
 void loop()
 {
   int bv = button.update(); // get button value
   // Serial.printf("Current button value is: %d\n", bv);
+  if (system_state == STARTUP)
+  {
+    if (!startup) {
+      startup = true;
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(40, 60, 2);
+      tft.printf("Loading\nBluePencilsTM");
+    }
+    if (millis() - startup_timer > startup_time) {
+      system_state = LOGIN;
+    }
+  }
   if (system_state == LOGIN)
   {
     float x, y;
@@ -365,8 +387,8 @@ void loop()
     if (login_state == START)
     {
       tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0, 1);
-      tft.printf("Username:%s\nPassword:%s\n", username, password);
+      tft.setCursor(40, 60, 2);
+      tft.printf("Username:%s", username);
       login_state = USERNAME;
     }
     else if (login_state == USERNAME)
@@ -435,8 +457,13 @@ void loop()
     if (strcmp(username, old_username) != 0 || strcmp(password, old_password) != 0)
     { // only draw if changed!
       tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0, 1);
-      tft.printf("Username:%s\nPassword:%s\n", username, password);
+      tft.setCursor(40, 60, 2);
+      if (login_state == USERNAME) {
+        tft.printf("Username:\n%s", username);
+      }
+      else {
+        tft.printf("Username:\n%s\nPassword:%s\n", username, password);
+      }
     }
     strcpy(old_username, username);
     strcpy(old_password, password);
