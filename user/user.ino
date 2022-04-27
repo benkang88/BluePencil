@@ -214,7 +214,8 @@ bool welcome = false;
 
 int old_system_select;
 int system_select;
-char select_options[3][100] = {"Find stations", "User stats", "Credits"};
+const int NUM_SETTINGS = 4;
+char select_options[NUM_SETTINGS][100] = {"Find stations", "User stats", "Credits", "Logout"};
 
 Button button1(BUTTON1_PIN); // button object!
 Button button2(BUTTON2_PIN);
@@ -277,7 +278,8 @@ void display_nearby_stations()
   // Serial.printf("Displaying nearby stations!\n");
   // Serial.printf("station_select: %d\n", station_select);
   tft.fillScreen(TFT_BLACK);
-  tft.setCursor(30, 50, 2);
+  tft.setCursor(0, 50, 2);
+  tft.setTextColor(TFT_BLUE, TFT_BLACK);
   if (num_nearby_stations == 0)
   {
     tft.printf("No nearby stations!\n");
@@ -287,12 +289,11 @@ void display_nearby_stations()
     tft.printf("Nearby stations:\n");
     for (int i = 0; i < num_nearby_stations; i++)
     {
-      tft.printf("%s ", nearby_stations[i]);
       if (station_select == i)
-      {
-        tft.printf("[*]");
-      }
-      tft.printf("\n");
+        tft.printf("[*] ");
+      else
+        tft.print("    ");
+      tft.printf("%s\n", nearby_stations[i]);
     }
   }
 }
@@ -410,8 +411,8 @@ void loop()
     if (!startup) {
       startup = true;
       tft.fillScreen(TFT_BLACK);
-      tft.setCursor(40, 60, 2);
-      tft.printf("Loading\nBluePencilsTM");
+      tft.setCursor(0, 60, 2);
+      tft.printf("Loading...\nBluePencilsTM");
     }
     if (millis() - startup_timer > startup_time) {
       system_state = LOGIN;
@@ -426,7 +427,7 @@ void loop()
     if (login_state == START)
     {
       tft.fillScreen(TFT_BLACK);
-      tft.setCursor(40, 60, 2);
+      tft.setCursor(0, 50, 2);
       tft.setTextColor(TFT_RED, TFT_BLACK);
       tft.printf("Username:%s", username);
       login_state = USERNAME;
@@ -503,16 +504,23 @@ void loop()
     if (strcmp(username, old_username) != 0 || strcmp(password, old_password) != 0)
     { // only draw if changed!
       tft.fillScreen(TFT_BLACK);
-      tft.setCursor(40, 60, 2);
+      tft.setCursor(0, 50, 2);
       if (login_state == USERNAME) {
         tft.setTextColor(TFT_RED, TFT_BLACK);
         tft.printf("Username:\n%s", username);
       }
-      else {
+      else if (login_state == PASSWORD) {
         tft.setTextColor(TFT_BLUE, TFT_BLACK);
         tft.printf("Username:\n%s\n", username);
         tft.setTextColor(TFT_RED, TFT_BLACK);
         tft.printf("Password:\n%s\n", password);
+      }
+      else {
+        tft.setTextColor(TFT_BLUE, TFT_BLACK);
+        tft.printf("Username:\n%s\n", username);
+        tft.printf("Password:\n%s\n", password);
+        tft.setTextColor(TFT_RED, TFT_BLACK);
+        tft.println("Processing...");
       }
     }
     strcpy(old_username, username);
@@ -528,7 +536,7 @@ void loop()
       welcome = true;
       tft.fillScreen(TFT_BLACK);
       tft.setTextColor(TFT_BLUE, TFT_BLACK);
-      tft.setCursor(40, 60, 2);
+      tft.setCursor(0, 50, 2);
       tft.printf("Welcome to BluePencils, %s!", username);
     }
     if (millis() - welcome_timer > welcome_time) {
@@ -542,10 +550,10 @@ void loop()
   {
     if (old_system_select != system_select) {
       tft.fillScreen(TFT_BLACK);
-      tft.setTextColor(TFT_RED, TFT_BLACK);
+      tft.setTextColor(TFT_BLUE, TFT_BLACK);
       tft.setCursor(0, 0, 2);
       tft.printf("User: %s\n\n", username);
-      for (int i = 0; i < 3; i++) {
+      for (int i = 0; i < NUM_SETTINGS; i++) {
         if (system_select == i) {
           tft.print("[*] ");
         }
@@ -560,6 +568,10 @@ void loop()
     if (bv > 0) {
       if (system_select == 0) {
         system_state = CHECKOUT;
+        tft.fillScreen(TFT_BLACK);
+        tft.setCursor(0, 0, 2);
+        tft.setTextColor(TFT_RED, TFT_BLACK);
+        tft.print("Fetching nearby stations...");
       }
       else if (system_select == 1) {
         system_state = USER_STATS;
@@ -567,17 +579,24 @@ void loop()
       else if (system_select == 2) {
         system_state = CREDITS;
       }
+      else if (system_select == 3) { 
+        system_state = LOGIN;
+        strcpy(old_username, "");
+        strcpy(username, "");
+        strcpy(old_password, "");
+        strcpy(password, "");
+      }
     }
     else if (bv3 > 0) {
-      system_select = (system_select + 1) % 3;
+      system_select = (system_select + 1) % NUM_SETTINGS;
     }
     else if (bv4 > 0) {
-      system_select = (system_select + 2) % 3;
+      system_select = (system_select + NUM_SETTINGS - 1) % NUM_SETTINGS;
     }
   }
 
   else if (system_state == CHECKOUT)
-  {
+  {      
     Serial.printf("Current button value is: %d\n", bv);
     if (checkout_state == SEARCH)
     {
@@ -590,10 +609,14 @@ void loop()
         station_search_timer = millis();
       }
       // Serial.printf("Current button value is: %d\n", bv);
-      if (bv == 1)
+      if (bv3 > 0)
       {
         Serial.printf("button is 1\n");
         station_select = (num_nearby_stations == 0) ? 0 : (station_select + 1) % num_nearby_stations;
+        display_nearby_stations();
+      }
+      else if (bv4 > 0) {
+        station_select = (num_nearby_stations == 0) ? 0 : (station_select + num_nearby_stations - 1) % num_nearby_stations;
         display_nearby_stations();
       }
       else if (bv == 2)
