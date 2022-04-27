@@ -11,7 +11,10 @@
 TFT_eSPI tft = TFT_eSPI();
 const int SCREEN_HEIGHT = 160;
 const int SCREEN_WIDTH = 128;
-const int BUTTON_PIN = 45;
+const int BUTTON1_PIN = 45;
+const int BUTTON2_PIN = 39;
+const int BUTTON3_PIN = 38;
+const int BUTTON4_PIN = 34;
 const int LOOP_PERIOD = 40;
 
 MPU6050 imu; // imu object called, appropriately, imu
@@ -182,17 +185,29 @@ enum system_status
 {
   STARTUP,
   LOGIN,
+  WELCOME,
+  SELECT,
   CHECKOUT,
   USER_STATS,
   CREDITS
 };
 system_status system_state;
 
-uint32_t startup_time = 4000; // time in ms to display startup sequence
+uint32_t startup_time = 3000; // time in ms to display startup sequence
 uint32_t startup_timer;
 bool startup = false;
 
-Button button(BUTTON_PIN); // button object!
+uint32_t welcome_time = 3000;
+uint32_t welcome_timer;
+bool welcome = false;
+
+int old_system_select;
+int system_select;
+
+Button button1(BUTTON1_PIN); // button object!
+Button button2(BUTTON2_PIN);
+Button button3(BUTTON3_PIN);
+Button button4(BUTTON4_PIN);
 
 const int max_nearby_stations = 5;
 char nearby_stations[max_nearby_stations][100];
@@ -341,7 +356,10 @@ void setup()
   tft.setTextSize(1);
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(TFT_BLUE, TFT_BLACK); // set color of font to green foreground, black background
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(BUTTON1_PIN, INPUT_PULLUP);
+  pinMode(BUTTON2_PIN, INPUT_PULLUP);
+  pinMode(BUTTON3_PIN, INPUT_PULLUP);
+  pinMode(BUTTON4_PIN, INPUT_PULLUP);
   primary_timer = millis();
 
   // set up the LCD PWM and set it to
@@ -366,8 +384,15 @@ void setup()
 
 void loop()
 {
-  int bv = button.update(); // get button value
+  int bv1 = button1.update(); // get button value
+  int bv2 = button2.update();
+  int bv3 = button3.update();
+  int bv4 = button4.update();
+  int bv = 0;
+  if (bv1 > 0) bv = 1;
+  else if (bv2 > 0) bv = 2;
   // Serial.printf("Current button value is: %d\n", bv);
+
   if (system_state == STARTUP)
   {
     if (!startup) {
@@ -380,17 +405,21 @@ void loop()
       system_state = LOGIN;
     }
   }
+
   if (system_state == LOGIN)
   {
     float x, y;
     get_angle(&x, &y); // get angle values
+
     if (login_state == START)
     {
       tft.fillScreen(TFT_BLACK);
       tft.setCursor(40, 60, 2);
+      tft.setTextColor(TFT_RED, TFT_BLACK);
       tft.printf("Username:%s", username);
       login_state = USERNAME;
     }
+
     else if (login_state == USERNAME)
     {
       username_getter.update(y, bv, username);
@@ -400,6 +429,7 @@ void loop()
         username_getter.reset();
       }
     }
+
     else if (login_state == PASSWORD)
     {
       password_getter.update(y, bv, password);
@@ -412,6 +442,7 @@ void loop()
         password_getter.reset();
       }
     }
+
     else if (login_state == POST)
     {
       // state is DONE
@@ -425,6 +456,7 @@ void loop()
       // if response is bad (wrong password) --> login_state = USERNAME, reset username and password strings
       // else if response is good, (welcome back or welcome new user) --> login_state = DONE
     }
+
     else if (login_state == POST_RESULT)
     {
       if (millis() - post_result_timer > post_result_threshold)
@@ -450,19 +482,25 @@ void loop()
         }
       }
     }
+
     else if (login_state == DONE)
     {
-      system_state = CHECKOUT;
+      system_state = WELCOME;
+      welcome_timer = millis();
     }
     if (strcmp(username, old_username) != 0 || strcmp(password, old_password) != 0)
     { // only draw if changed!
       tft.fillScreen(TFT_BLACK);
       tft.setCursor(40, 60, 2);
       if (login_state == USERNAME) {
+        tft.setTextColor(TFT_RED, TFT_BLACK);
         tft.printf("Username:\n%s", username);
       }
       else {
-        tft.printf("Username:\n%s\nPassword:%s\n", username, password);
+        tft.setTextColor(TFT_BLUE, TFT_BLACK);
+        tft.printf("Username:\n%s\n", username);
+        tft.setTextColor(TFT_RED, TFT_BLACK);
+        tft.printf("Password:\n%s\n", password);
       }
     }
     strcpy(old_username, username);
@@ -470,6 +508,32 @@ void loop()
     // memset(old_response, 0, sizeof(old_response));
     // strcat(old_response, response);
   }
+
+  else if (system_state == WELCOME)
+  {
+    if (!welcome)
+    {
+      welcome = true;
+      tft.fillScreen(TFT_BLACK);
+      tft.setTextColor(TFT_BLUE, TFT_BLACK);
+      tft.setCursor(40, 60, 2);
+      tft.printf("Welcome to BluePencils, %s!", username);
+    }
+    if (millis() - welcome_timer > welcome_time) {
+      system_state = SELECT;
+      old_system_state = 0;
+      system_state = 0;
+    }
+  }
+
+  else if (system_state = SELECT)
+  {
+    if (old_system_select != system_select) {
+      tft.fillScreen(TFT_BLACK);
+      tft.
+    }
+  }
+
   else if (system_state == CHECKOUT)
   {
     Serial.printf("Current button value is: %d\n", bv);
@@ -514,9 +578,14 @@ void loop()
     {
     }
   }
+
   else if (system_state == USER_STATS)
   {
     // when looking for a closer station
+  }
+
+  else if (system_state == CREDITS) {
+    
   }
 
   while (millis() - primary_timer < LOOP_PERIOD)
