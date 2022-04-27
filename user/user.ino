@@ -742,15 +742,11 @@ void loop()
       }
     }
   }
-<<<<<<< HEAD
   else if (system_state == BORROW_VIEW)
   {
     // shows current stats about the borrowing (how long they've been borrowing)
     Serial.printf("Now borrowing a pencil!\n");
   }
-=======
-
->>>>>>> 37964630b2acf4a3e4a562c808ecdf36a63de1e3
   else if (system_state == USER_STATS)
   {
     // when looking for a closer station
