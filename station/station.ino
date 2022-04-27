@@ -13,10 +13,11 @@ const int SCREEN_HEIGHT = 160;
 const int SCREEN_WIDTH = 128;
 const int BUTTON_PIN1 = 45;
 const int BUTTON_PIN2 = 39;
-const int BUTTON_PIN3 = 34;
+const int BUTTON_PIN3 = 38;
+const int BUTTON_PIN4 = 34;
 const int LOOP_PERIOD = 40;
 const int POST_LOCATION_PERIOD = 60000;
-const int ROTATION_PERIOD = 300;
+const int ROTATION_PERIOD = 450;
 float lat;
 float lon;
 
@@ -24,7 +25,7 @@ MPU6050 imu; // imu object called, appropriately, imu
 
 // char network[] = "MIT";    // SSID for .08 Lab
 // char wifi_password[] = ""; // Password for 6.08 Lab
-char network[] = "EECS_Labs";  //SSID for .08 Lab
+char network[] = "MIT";  //SSID for .08 Lab
 char wifi_password[] = ""; //Password for 6.08 Lab
 char POST_URL[] = "http://608dev-2.net/sandbox/sc/team39/login.py";
 
@@ -225,8 +226,12 @@ void setup()
   lat = 0;
   lon = 0;
   tft.fillScreen(TFT_BLACK);
-  tft.setCursor(0, 0, 1);
-  tft.printf("Enter code: ");
+  tft.setCursor(0, 0, 2);
+  tft.setTextColor(TFT_BLUE, TFT_BLACK);
+  tft.println("BluePencils\n");
+  tft.printf("Station name:\n%s\n", STATION_NAME);
+  tft.setTextColor(TFT_RED, TFT_BLACK);
+  tft.print("Enter code: _ _ _");
 }
 
 bool valid_code = false;
@@ -266,6 +271,9 @@ bool check_input_code(int dig1, int dig2, int dig3)
 
 void loop()
 {
+  int bv1 = button1.update();
+  int bv2 = button2.update();
+  int bv3 = button3.update();
   if (millis() - post_location_timer > POST_LOCATION_PERIOD)
   {
     get_latitude_longitude(&lat, &lon);
@@ -274,71 +282,53 @@ void loop()
   }
   if (station_state == WAITING_FOR_CODE_DIGIT_1)
   {
-    if (button1.update() == 1)
-    {
-      code_digit_1 = 1;
+    if (bv1 > 0) code_digit_1 = 1;
+    else if (bv2 > 0) code_digit_1 = 2;
+    else if (bv3 > 0) code_digit_1 = 3;
+    
+    if (bv1 > 0 || bv2 > 0 || bv3 > 0) {
       station_state = WAITING_FOR_CODE_DIGIT_2;
       tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0, 1);
-      tft.printf("%d", code_digit_1);
-    }
-    else if (button2.update() == 1)
-    {
-      code_digit_1 = 2;
-      station_state = WAITING_FOR_CODE_DIGIT_2;
-      tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0, 1);
-      tft.printf("%d", code_digit_1);
-    }
-    else if (button3.update() == 1)
-    {
-      code_digit_1 = 3;
-      station_state = WAITING_FOR_CODE_DIGIT_2;
-      tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0, 1);
-      tft.printf("%d", code_digit_1);
+      tft.setCursor(0, 0, 2);
+      tft.setTextColor(TFT_BLUE, TFT_BLACK);
+      tft.println("BluePencils\n");
+      tft.printf("Station name:\n%s\n", STATION_NAME);
+      tft.setTextColor(TFT_RED, TFT_BLACK);
+      tft.printf("Enter code: %d _ _", code_digit_1);
     }
   }
   else if (station_state == WAITING_FOR_CODE_DIGIT_2)
   {
-    if (button1.update() == 1)
-    {
-      code_digit_2 = 1;
+    if (bv1 > 0) code_digit_2 = 1;
+    else if (bv2 > 0) code_digit_2 = 2;
+    else if (bv3 > 0) code_digit_2 = 3;
+    
+    if (bv1 > 0 || bv2 > 0 || bv3 > 0) {
       station_state = WAITING_FOR_CODE_DIGIT_3;
-      tft.printf("%d", code_digit_2);
-    }
-    else if (button2.update() == 1)
-    {
-      code_digit_2 = 2;
-      station_state = WAITING_FOR_CODE_DIGIT_3;
-      tft.printf("%d", code_digit_2);
-    }
-    else if (button3.update() == 1)
-    {
-      code_digit_2 = 3;
-      station_state = WAITING_FOR_CODE_DIGIT_3;
-      tft.printf("%d", code_digit_2);
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0, 2);
+      tft.setTextColor(TFT_BLUE, TFT_BLACK);
+      tft.println("BluePencils\n");
+      tft.printf("Station name: %s\n", STATION_NAME);
+      tft.setTextColor(TFT_RED, TFT_BLACK);
+      tft.printf("Enter code: %d %d _", code_digit_1, code_digit_2);
     }
   }
   else if (station_state == WAITING_FOR_CODE_DIGIT_3)
   {
-    if (button1.update() == 1)
-    {
-      code_digit_3 = 1;
+    if (bv1 > 0) code_digit_3 = 1;
+    else if (bv2 > 0) code_digit_3 = 2;
+    else if (bv3 > 0) code_digit_3 = 3;
+    
+    if (bv1 > 0 || bv2 > 0 || bv3 > 0) {
       station_state = CHECK_CODE;
-      tft.printf("%d", code_digit_3);
-    }
-    else if (button2.update() == 1)
-    {
-      code_digit_3 = 2;
-      station_state = CHECK_CODE;
-      tft.printf("%d", code_digit_3);
-    }
-    else if (button3.update() == 1)
-    {
-      code_digit_3 = 3;
-      station_state = CHECK_CODE;
-      tft.printf("%d", code_digit_3);
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0, 2);
+      tft.setTextColor(TFT_BLUE, TFT_BLACK);
+      tft.println("BluePencils\n");
+      tft.printf("Station name:\n%s\n", STATION_NAME);
+      tft.setTextColor(TFT_RED, TFT_BLACK);
+      tft.printf("Enter code: %d %d %d", code_digit_1, code_digit_2, code_digit_3);
     }
   }
   else if (station_state == CHECK_CODE)
@@ -350,28 +340,38 @@ void loop()
       station_state = UNLOCKED;
       rotation_timer = millis();
       tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0, 1);
-      tft.printf("UNLOCKED");
+      tft.setCursor(0, 0, 2);
+      tft.setTextColor(TFT_BLUE, TFT_BLACK);
+      tft.println("BluePencils\n");
+      tft.printf("Station name:\n%s\n", STATION_NAME);
+      tft.print("Pencil Unlocked!");
       digitalWrite(MOTOR1, HIGH);
       digitalWrite(MOTOR2, LOW);
     }
     else
     {
       tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0, 1);
-      tft.printf("BAD CODE");
+      tft.setCursor(0, 0, 2);
+      tft.setTextColor(TFT_BLUE, TFT_BLACK);
+      tft.println("BluePencils\n");
+      tft.printf("Station name:\n%s\n", STATION_NAME);
+      tft.print("Bad Code");
       station_state = WAITING_FOR_CODE_DIGIT_1;
     }
   }
   else if (station_state == UNLOCKED)
   {
-    if(millis() - rotation_timer > ROTATION_PERIOD){
+    if (millis() - rotation_timer > ROTATION_PERIOD) {
       digitalWrite(MOTOR1, LOW);
       digitalWrite(MOTOR2, LOW);
       station_state = WAITING_FOR_CODE_DIGIT_1;
       tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0, 1);
-      tft.printf("Enter code: ");
+      tft.setCursor(0, 0, 2);
+      tft.setTextColor(TFT_BLUE, TFT_BLACK);
+      tft.println("BluePencils\n");
+      tft.printf("Station name:\n%s\n", STATION_NAME);
+      tft.setTextColor(TFT_RED, TFT_BLACK);
+      tft.print("Enter code: _ _ _");
     }
   }
   while (millis() - primary_timer < LOOP_PERIOD)
