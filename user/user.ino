@@ -69,7 +69,7 @@ void get_angle(float *x, float *y)
 class StringGetter
 {
   char alphabet[50] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  char query_string[50] = {0};
+  char query_string[50] = "";
   int char_index;
   int state;
   uint32_t scroll_timer;
@@ -100,6 +100,7 @@ public:
       else if (button == 2)
       {
         state = 1;
+        strcpy(output, query_string);
       }
       else if (millis() - scroll_timer > scroll_threshold)
       {
@@ -113,11 +114,17 @@ public:
           char_index = (char_index + alphabet_length - 1) % alphabet_length;
           scroll_timer = millis();
         }
-        sprintf(output, "%s%c", query_string, alphabet[char_index]);
+        if (millis() % 1000 < 500)
+          sprintf(output, "%s%c", query_string, alphabet[char_index]);
+        else
+          strcat(output, query_string);
       }
       else
       {
-        sprintf(output, "%s%c", query_string, alphabet[char_index]);
+        if (millis() % 1000 < 500)
+          sprintf(output, "%s%c", query_string, alphabet[char_index]);
+        else
+          strcat(output, query_string);
       }
     }
   }
@@ -436,9 +443,9 @@ void loop()
       password_getter.update(y, bv, password);
       if (password_getter.is_done())
       {
-        tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0, 1);
-        tft.printf("Sending data to server!");
+        // tft.fillScreen(TFT_BLACK);
+        // tft.setCursor(0, 0, 1);
+        // tft.printf("Sending data to server!");
         login_state = POST;
         password_getter.reset();
       }
@@ -451,9 +458,9 @@ void loop()
       // transition to POST_RESULT state and display post result
       login_state = POST_RESULT;
       post_result_timer = millis();
-      tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0, 1);
-      tft.printf("%s\n", response);
+      // tft.fillScreen(TFT_BLACK);
+      // tft.setCursor(0, 0, 1);
+      // tft.printf("%s\n", response);
       // if response is bad (wrong password) --> login_state = USERNAME, reset username and password strings
       // else if response is good, (welcome back or welcome new user) --> login_state = DONE
     }
@@ -522,16 +529,18 @@ void loop()
     }
     if (millis() - welcome_timer > welcome_time) {
       system_state = SELECT;
-      old_system_state = 0;
-      system_state = 0;
+      old_system_select = -1;
+      system_select = 0;
     }
   }
 
-  else if (system_state = SELECT)
+  else if (system_state == SELECT)
   {
     if (old_system_select != system_select) {
       tft.fillScreen(TFT_BLACK);
       tft.setTextColor(TFT_RED, TFT_BLACK);
+      tft.setCursor(0, 0, 2);
+      tft.printf("User: %s\n\n", username);
       for (int i = 0; i < 3; i++) {
         if (system_select == i) {
           tft.print("[*] ");
@@ -542,6 +551,8 @@ void loop()
         tft.printf("%s\n", select_options[i]);
       }
     }
+
+    old_system_select = system_select;
     if (bv > 0) {
       if (system_select == 0) {
         system_state = CHECKOUT;
