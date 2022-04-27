@@ -564,6 +564,7 @@ void loop()
       tft.setCursor(0, 0, 2);
       tft.println("BluePencils\n");
       tft.printf("User: %s\n\n", username);
+      tft.setTextColor(TFT_RED, TFT_BLACK);
       for (int i = 0; i < NUM_SETTINGS; i++) {
         if (system_select == i) {
           tft.print("[*] ");
@@ -593,6 +594,7 @@ void loop()
         system_state = CREDITS;
       }
       else if (system_select == 3) { 
+        login_state = START;
         system_state = LOGIN;
         strcpy(old_username, "");
         strcpy(username, "");
