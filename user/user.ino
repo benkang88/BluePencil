@@ -83,7 +83,7 @@ public:
     char_index = 0;
     scroll_timer = millis();
   }
-  void update(float angle, int button, char *output)
+  void update(float angle, int button, char *output, bool update)
   {
     int alphabet_length = 36;
     if (state == 0)
@@ -114,17 +114,21 @@ public:
           char_index = (char_index + alphabet_length - 1) % alphabet_length;
           scroll_timer = millis();
         }
-        if (millis() % 1000 < 500)
+        if (update) {
           sprintf(output, "%s%c", query_string, alphabet[char_index]);
-        else
-          strcat(output, query_string);
+        }
+        else {
+          strcpy(output, query_string);
+        }
       }
       else
       {
-        if (millis() % 1000 < 500)
+        if (update) {
           sprintf(output, "%s%c", query_string, alphabet[char_index]);
-        else
-          strcat(output, query_string);
+        }
+        else {
+          strcpy(output, query_string);
+        }
       }
     }
   }
@@ -430,7 +434,7 @@ void loop()
 
     else if (login_state == USERNAME)
     {
-      username_getter.update(y, bv, username);
+      username_getter.update(y, bv, username, millis() % 1000 < 500);
       if (username_getter.is_done())
       {
         login_state = PASSWORD;
@@ -440,7 +444,7 @@ void loop()
 
     else if (login_state == PASSWORD)
     {
-      password_getter.update(y, bv, password);
+      password_getter.update(y, bv, password, millis() % 1000 < 500);
       if (password_getter.is_done())
       {
         // tft.fillScreen(TFT_BLACK);
