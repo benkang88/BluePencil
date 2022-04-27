@@ -161,13 +161,18 @@ enum checkout_status
 {
   SEARCH,
   SELECTED,
-  DISPLAY_CODE
+  DISPLAY_CODE,
+  EXPIRED
 };
 checkout_status checkout_state;
 uint32_t station_search_timer;
 uint32_t fetch_code_timer;
-const uint32_t fetch_code_wait = 2000; // time to wait while geting code request
+uint32_t temp_message_timer;
+const uint32_t fetch_code_wait = 2000;   // time to wait while geting code request
+const uint32_t code_status_wait = 1000;  // time to wait between consecutive checks of code status
+const uint32_t expired_code_wait = 3000; // amount of time to display code expiration message
 char unlock_code[10];
+char code_status[100];
 const uint32_t station_search_period = 15000; // send out GET request for nearby stations every 5 seconds
 char selected_station[100];
 int num_nearby_stations = 0;
@@ -179,6 +184,7 @@ enum system_status
 {
   LOGIN,
   CHECKOUT,
+  BORROW_VIEW,
   USER_STATS
 };
 system_status system_state;
@@ -211,6 +217,7 @@ int get_number_nearby_stations()
   // Serial.printf("number of nearby stations: %d\n", count);
   return count;
 }
+
 void update_nearby_stations()
 {
   clear_nearby_stations();
@@ -272,6 +279,26 @@ void get_unlock_code(char selected_station[])
   sprintf(unlock_code, response);
 }
 
+/**
+ * updates code status
+ * */
+void update_code_status()
+{
+  sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/code_status.py?user=%s&first=%c&second=%c&third=%c  HTTP/1.1\r\n", username, unlock_code[0], unlock_code[1], unlock_code[2]);
+  strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
+  strcat(request, "\r\n");
+  sprintf(response, "");
+  do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
+  printf("response is: %s\n", response);
+  sprintf(code_status, response);
+  Serial.printf("Code status is: %s\n", code_status);
+  Serial.printf("Code status length: %d\n", strlen(code_status));
+  for (int i = 0; i < strlen(code_status); i++)
+  {
+    Serial.printf("Character %d: %d\n", i, code_status[i]);
+  }
+}
+
 void username_password_post()
 {
   char body[1000]; // for body
@@ -286,7 +313,7 @@ void username_password_post()
   offset += sprintf(request + offset, "%s\r\n", body);
   Serial.printf("Request: %s\n\n\n\n", request);
   do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
-  Serial.printf("Response: %s", response);
+  Serial.printf("Response: %s\n", response);
 }
 
 void setup()
@@ -445,7 +472,7 @@ void loop()
   }
   else if (system_state == CHECKOUT)
   {
-    Serial.printf("Current button value is: %d\n", bv);
+    // Serial.printf("Checkout_state is: %d\n", checkout_state);
     if (checkout_state == SEARCH)
     {
       if (millis() - station_search_timer > station_search_period)
@@ -459,33 +486,71 @@ void loop()
       // Serial.printf("Current button value is: %d\n", bv);
       if (bv == 1)
       {
-        Serial.printf("button is 1\n");
         station_select = (num_nearby_stations == 0) ? 0 : (station_select + 1) % num_nearby_stations;
         display_nearby_stations();
       }
       else if (bv == 2)
       {
-        Serial.printf("button is 2\n");
         sprintf(selected_station, "%s", nearby_stations[station_select]);
         Serial.printf("station is now: %s\n", selected_station);
-        checkout_state = SELECTED;
-        fetch_code_timer = millis();
         tft.fillScreen(TFT_BLACK);
         tft.setCursor(0, 0, 1);
         tft.printf("Fetching code for station: %s", selected_station);
         get_unlock_code(selected_station);
+        fetch_code_timer = millis();
+        checkout_state = SELECTED;
       }
     }
     else if (checkout_state == SELECTED)
     {
       if (millis() - fetch_code_timer > fetch_code_wait)
       {
-        checkout_state == DISPLAY_CODE;
+        tft.fillScreen(TFT_BLACK);
+        tft.setCursor(0, 0, 1);
+        tft.printf("Unlock code is: %s\n", unlock_code);
+        checkout_state = DISPLAY_CODE;
+        temp_message_timer = millis();
       }
     }
     else if (checkout_state == DISPLAY_CODE)
     {
+      if (millis() - temp_message_timer > code_status_wait)
+      {
+        update_code_status();
+        temp_message_timer = millis();
+      }
+      if (strcmp(code_status, "USED\n") == 0)
+      {
+        // tft.printf(code was successfully used --> move state to start tracking the trip
+        tft.fillScreen(TFT_BLACK);
+        tft.setCursor(0, 0, 1);
+        tft.printf("Code entered successfully!");
+        checkout_state = SEARCH;
+        system_state = BORROW_VIEW;
+      }
+      else if (strcmp(code_status, "EXPIRED\n") == 0)
+      {
+        // tft.printf your code has expired --> return to SELECT station
+        tft.fillScreen(TFT_BLACK);
+        tft.setCursor(0, 0, 1);
+        tft.printf("Code has expired!");
+        checkout_state = EXPIRED;
+        temp_message_timer = millis();
+      }
     }
+    else if (checkout_state == EXPIRED)
+    {
+      // remain in this state until expired_wait_seconds have passed
+      if (millis() - temp_message_timer > expired_code_wait)
+      {
+        checkout_state = SEARCH;
+      }
+    }
+  }
+  else if (system_state == BORROW_VIEW)
+  {
+    // shows current stats about the borrowing (how long they've been borrowing)
+    Serial.printf("Now borrowing a pencil!\n");
   }
   else if (system_state == USER_STATS)
   {
