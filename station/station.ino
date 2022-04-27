@@ -16,7 +16,7 @@ const int BUTTON_PIN2 = 39;
 const int BUTTON_PIN3 = 34;
 const int LOOP_PERIOD = 40;
 const int POST_LOCATION_PERIOD = 60000;
-const int ROTATION_PERIOD = 400;
+const int ROTATION_PERIOD = 450;
 float lat;
 float lon;
 
