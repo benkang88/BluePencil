@@ -203,6 +203,7 @@ bool welcome = false;
 
 int old_system_select;
 int system_select;
+char select_options[3][100] = {"Find stations", "User stats", "Credits"};
 
 Button button1(BUTTON1_PIN); // button object!
 Button button2(BUTTON2_PIN);
@@ -530,7 +531,33 @@ void loop()
   {
     if (old_system_select != system_select) {
       tft.fillScreen(TFT_BLACK);
-      tft.
+      tft.setTextColor(TFT_RED, TFT_BLACK);
+      for (int i = 0; i < 3; i++) {
+        if (system_select == i) {
+          tft.print("[*] ");
+        }
+        else {
+          tft.print("    ");
+        }
+        tft.printf("%s\n", select_options[i]);
+      }
+    }
+    if (bv > 0) {
+      if (system_select == 0) {
+        system_state = CHECKOUT;
+      }
+      else if (system_select == 1) {
+        system_state = USER_STATS;
+      }
+      else if (system_select == 2) {
+        system_state = CREDITS;
+      }
+    }
+    else if (bv3 > 0) {
+      system_select = (system_select + 1) % 3;
+    }
+    else if (bv4 > 0) {
+      system_select = (system_select + 2) % 3;
     }
   }
 
