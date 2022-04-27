@@ -278,14 +278,16 @@ void display_nearby_stations()
   // Serial.printf("Displaying nearby stations!\n");
   // Serial.printf("station_select: %d\n", station_select);
   tft.fillScreen(TFT_BLACK);
-  tft.setCursor(0, 50, 2);
+  tft.setCursor(0, 0, 2);
   tft.setTextColor(TFT_BLUE, TFT_BLACK);
+  tft.println("BluePencils\n\n");
   if (num_nearby_stations == 0)
   {
     tft.printf("No nearby stations!\n");
   }
   else
   {
+    tft.setTextColor(TFT_RED, TFT_BLACK);
     tft.printf("Nearby stations:\n");
     for (int i = 0; i < num_nearby_stations; i++)
     {
@@ -411,8 +413,9 @@ void loop()
     if (!startup) {
       startup = true;
       tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 60, 2);
-      tft.printf("Loading...\nBluePencilsTM");
+      tft.setCursor(0, 0, 2);
+      tft.println("BluePencilsTM\n\n");
+      tft.print("Loading...");
     }
     if (millis() - startup_timer > startup_time) {
       system_state = LOGIN;
@@ -427,7 +430,9 @@ void loop()
     if (login_state == START)
     {
       tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 50, 2);
+      tft.setCursor(0, 0, 2);
+      tft.setTextColor(TFT_BLUE, TFT_BLACK);
+      tft.println("BluePencils\n\n");
       tft.setTextColor(TFT_RED, TFT_BLACK);
       tft.printf("Username:%s", username);
       login_state = USERNAME;
@@ -504,19 +509,23 @@ void loop()
     if (strcmp(username, old_username) != 0 || strcmp(password, old_password) != 0)
     { // only draw if changed!
       tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 50, 2);
+      tft.setCursor(0, 0, 2);
       if (login_state == USERNAME) {
+        tft.setTextColor(TFT_BLUE, TFT_BLACK);
+        tft.println("BluePencils\n\n");
         tft.setTextColor(TFT_RED, TFT_BLACK);
         tft.printf("Username:\n%s", username);
       }
       else if (login_state == PASSWORD) {
         tft.setTextColor(TFT_BLUE, TFT_BLACK);
+        tft.println("BluePencils\n\n");
         tft.printf("Username:\n%s\n", username);
         tft.setTextColor(TFT_RED, TFT_BLACK);
         tft.printf("Password:\n%s\n", password);
       }
       else {
         tft.setTextColor(TFT_BLUE, TFT_BLACK);
+        tft.println("BluePencils\n\n");
         tft.printf("Username:\n%s\n", username);
         tft.printf("Password:\n%s\n", password);
         tft.setTextColor(TFT_RED, TFT_BLACK);
@@ -536,7 +545,8 @@ void loop()
       welcome = true;
       tft.fillScreen(TFT_BLACK);
       tft.setTextColor(TFT_BLUE, TFT_BLACK);
-      tft.setCursor(0, 50, 2);
+      tft.setCursor(0, 0, 2);
+      tft.println("BluePencils\n\n");
       tft.printf("Welcome to BluePencils, %s!", username);
     }
     if (millis() - welcome_timer > welcome_time) {
@@ -552,6 +562,7 @@ void loop()
       tft.fillScreen(TFT_BLACK);
       tft.setTextColor(TFT_BLUE, TFT_BLACK);
       tft.setCursor(0, 0, 2);
+      tft.println("BluePencils\n");
       tft.printf("User: %s\n\n", username);
       for (int i = 0; i < NUM_SETTINGS; i++) {
         if (system_select == i) {
@@ -570,6 +581,8 @@ void loop()
         system_state = CHECKOUT;
         tft.fillScreen(TFT_BLACK);
         tft.setCursor(0, 0, 2);
+        tft.setTextColor(TFT_BLUE, TFT_BLACK);
+        tft.println("BluePencils\n\n");
         tft.setTextColor(TFT_RED, TFT_BLACK);
         tft.print("Fetching nearby stations...");
       }
@@ -619,7 +632,7 @@ void loop()
         station_select = (num_nearby_stations == 0) ? 0 : (station_select + num_nearby_stations - 1) % num_nearby_stations;
         display_nearby_stations();
       }
-      else if (bv == 2)
+      else if (bv > 0)
       {
         Serial.printf("button is 2\n");
         sprintf(selected_station, "%s", nearby_stations[station_select]);
