@@ -291,7 +291,7 @@ void display_nearby_stations()
   tft.fillScreen(TFT_BLACK);
   tft.setCursor(0, 0, 2);
   tft.setTextColor(TFT_BLUE, TFT_BLACK);
-  tft.println("BluePencils\n\n");
+  tft.println("BluePencils\n");
   if (num_nearby_stations == 0)
   {
     tft.printf("No nearby stations!\n");
@@ -448,7 +448,7 @@ void loop()
       startup = true;
       tft.fillScreen(TFT_BLACK);
       tft.setCursor(0, 0, 2);
-      tft.println("BluePencilsTM\n\n");
+      tft.println("BluePencilsTM\n");
       tft.print("Loading...");
     }
     if (millis() - startup_timer > startup_time)
@@ -467,7 +467,7 @@ void loop()
       tft.fillScreen(TFT_BLACK);
       tft.setCursor(0, 0, 2);
       tft.setTextColor(TFT_BLUE, TFT_BLACK);
-      tft.println("BluePencils\n\n");
+      tft.println("BluePencil");
       tft.setTextColor(TFT_RED, TFT_BLACK);
       tft.printf("Username:%s", username);
       login_state = USERNAME;
@@ -548,14 +548,14 @@ void loop()
       if (login_state == USERNAME)
       {
         tft.setTextColor(TFT_BLUE, TFT_BLACK);
-        tft.println("BluePencils\n\n");
+        tft.println("BluePencil\n");
         tft.setTextColor(TFT_RED, TFT_BLACK);
         tft.printf("Username:\n%s", username);
       }
       else if (login_state == PASSWORD)
       {
         tft.setTextColor(TFT_BLUE, TFT_BLACK);
-        tft.println("BluePencils\n\n");
+        tft.println("BluePencils\n");
         tft.printf("Username:\n%s\n", username);
         tft.setTextColor(TFT_RED, TFT_BLACK);
         tft.printf("Password:\n%s\n", password);
@@ -563,7 +563,7 @@ void loop()
       else
       {
         tft.setTextColor(TFT_BLUE, TFT_BLACK);
-        tft.println("BluePencils\n\n");
+        tft.println("BluePencils\n");
         tft.printf("Username:\n%s\n", username);
         tft.printf("Password:\n%s\n", password);
         tft.setTextColor(TFT_RED, TFT_BLACK);
@@ -584,7 +584,7 @@ void loop()
       tft.fillScreen(TFT_BLACK);
       tft.setTextColor(TFT_BLUE, TFT_BLACK);
       tft.setCursor(0, 0, 2);
-      tft.println("BluePencils\n\n");
+      tft.println("BluePencil\n");
       tft.printf("Welcome to BluePencils, %s!", username);
     }
     if (millis() - welcome_timer > welcome_time)
@@ -628,7 +628,7 @@ void loop()
         tft.fillScreen(TFT_BLACK);
         tft.setCursor(0, 0, 2);
         tft.setTextColor(TFT_BLUE, TFT_BLACK);
-        tft.println("BluePencils\n\n");
+        tft.println("BluePencils\n");
         tft.setTextColor(TFT_RED, TFT_BLACK);
         tft.print("Fetching nearby stations...");
       }
@@ -644,6 +644,7 @@ void loop()
       {
         login_state = START;
         system_state = LOGIN;
+        welcome = false;
         strcpy(old_username, "");
         strcpy(username, "");
         strcpy(old_password, "");
@@ -689,7 +690,10 @@ void loop()
         sprintf(selected_station, "%s", nearby_stations[station_select]);
         Serial.printf("station is now: %s\n", selected_station);
         tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0, 1);
+        tft.setCursor(0, 0, 2);
+        tft.setTextColor(TFT_BLUE, TFT_BLACK);
+        tft.println("BluePencils\n");
+        tft.setTextColor(TFT_RED, TFT_BLACK);
         tft.printf("Fetching code for station: %s", selected_station);
         get_unlock_code(selected_station);
         fetch_code_timer = millis();
@@ -701,7 +705,10 @@ void loop()
       if (millis() - fetch_code_timer > fetch_code_wait)
       {
         tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0, 1);
+        tft.setCursor(0, 0, 2);
+        tft.setTextColor(TFT_BLUE, TFT_BLACK);
+        tft.println("BluePencils\n");
+        tft.setTextColor(TFT_RED, TFT_BLACK);
         tft.printf("Unlock code is: %s\n", unlock_code);
         checkout_state = DISPLAY_CODE;
         temp_message_timer = millis();
@@ -718,7 +725,9 @@ void loop()
       {
         // tft.printf(code was successfully used --> move state to start tracking the trip
         tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0, 1);
+        tft.setCursor(0, 0, 2);
+        tft.setTextColor(TFT_BLUE, TFT_BLACK);
+        tft.println("BluePencils\n");
         tft.printf("Code entered successfully!");
         checkout_state = SEARCH;
         system_state = BORROW_VIEW;
@@ -727,7 +736,9 @@ void loop()
       {
         // tft.printf your code has expired --> return to SELECT station
         tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0, 1);
+        tft.setCursor(0, 0, 2);
+        tft.setTextColor(TFT_BLUE, TFT_BLACK);
+        tft.println("BluePencils\n");
         tft.printf("Code has expired!");
         checkout_state = EXPIRED;
         temp_message_timer = millis();
