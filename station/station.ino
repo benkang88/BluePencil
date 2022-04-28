@@ -42,7 +42,7 @@ WiFiClient client2;      // global WiFiClient Secure object
 // Some constants and some resources:
 const int RESPONSE_TIMEOUT = 6000;     // ms to wait for response from host
 const uint16_t IN_BUFFER_SIZE = 1000;  // size of buffer to hold HTTP request
-const uint16_t OUT_BUFFER_SIZE = 1000; // size of buffer to hold HTTP response
+const uint16_t OUT_BUFFER_SIZE = 10000; // size of buffer to hold HTTP response
 const char STATION_NAME[] = "STATION";
 char request[IN_BUFFER_SIZE];
 char old_response[OUT_BUFFER_SIZE]; // char array buffer to hold HTTP request
@@ -53,14 +53,19 @@ uint8_t LCD_CONTROL = 21;
 uint8_t AUDIO_TRANSDUCER = 14;
 uint8_t MOTOR1 = 11; 
 uint8_t MOTOR2 = 10;
+uint8_t CLICKER = 1;
 
 // PWM Channels. The LCD will still be controlled by channel 0, we'll use channel 1 for audio generation
 uint8_t LCD_PWM = 0;
 uint8_t AUDIO_PWM = 1;
-// uint8_t MOTOR_PWM = 2;
+
+uint8_t num_pencils;
 
 uint32_t primary_timer;
 uint32_t rotation_timer;
+// uint32_t return_timer;
+
+bool returning;
 
 int old_val;
 
@@ -219,7 +224,9 @@ void setup()
   ledcAttachPin(LCD_CONTROL, LCD_PWM);
   pinMode(MOTOR1, OUTPUT);
   pinMode(MOTOR2, OUTPUT);
+  pinMode(CLICKER, INPUT);
 
+  num_pencils = get_num_pencils();
 
   station_state = WAITING_FOR_CODE_DIGIT_1;
   post_location_timer = millis();
@@ -257,6 +264,33 @@ void post_location(float lat, float lon)
   Serial.printf("Response: %s", response);
 }
 
+uint8_t get_num_pencils(){
+  sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/pencil_update.py?station=%s  HTTP/1.1\r\n", STATION_NAME);
+  Serial.printf("%s", request);
+  strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
+  strcat(request, "\r\n");
+  sprintf(response, "");
+  do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
+  return atoi(response);
+}
+
+void post_num_pencils(){
+  char body[1000]; // for body
+  sprintf(body, "station=%s&num_pencils=%d", STATION_NAME, num_pencils);
+  int len = strlen(body);
+  request[0] = '\0'; // set 0th byte to null
+  int offset = sprintf(request + offset, "POST %s?%s  HTTP/1.1\r\n", "http://608dev-2.net/sandbox/sc/team39/pencil_update.py", body);
+  offset += sprintf(request + offset, "Host: 608dev-2.net\r\n");
+  offset += sprintf(request + offset, "Content-Type: application/x-www-form-urlencoded\r\n");
+  offset += sprintf(request + offset, "cache-control: no-cache\r\n");
+  offset += sprintf(request + offset, "Content-Length: %d\r\n\r\n", len);
+  offset += sprintf(request + offset, "%s\r\n", body);
+  Serial.printf("Request: %s\n\n\n\n", request);
+  sprintf(response, "");
+  do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
+  Serial.printf("Response: %s", response);
+}
+
 bool check_input_code(int dig1, int dig2, int dig3)
 {
   sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/code_checker.py?station=%s&first=%d%&second=%d&third=%d  HTTP/1.1\r\n", STATION_NAME, dig1, dig2, dig3);
@@ -271,6 +305,18 @@ bool check_input_code(int dig1, int dig2, int dig3)
 
 void loop()
 {
+  if(digitalRead(CLICKER) == LOW){
+    if(!returning){
+      num_pencils++;
+      post_num_pencils();
+      Serial.println("Returned");
+      Serial.println(num_pencils);
+      returning = true;
+    }
+  }
+  else{
+    returning = false;
+  }
   int bv1 = button1.update();
   int bv2 = button2.update();
   int bv3 = button3.update();
@@ -345,6 +391,7 @@ void loop()
       tft.println("BluePencils\n");
       tft.printf("Station name:\n%s\n", STATION_NAME);
       tft.print("Pencil Unlocked!");
+      num_pencils --;
       digitalWrite(MOTOR1, HIGH);
       digitalWrite(MOTOR2, LOW);
     }
