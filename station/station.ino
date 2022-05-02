@@ -391,9 +391,10 @@ void loop()
       tft.println("BluePencils\n");
       tft.printf("Station name:\n%s\n", STATION_NAME);
       tft.print("Pencil Unlocked!");
-      num_pencils --;
       digitalWrite(MOTOR1, HIGH);
       digitalWrite(MOTOR2, LOW);
+      num_pencils--;
+      post_num_pencils();
     }
     else
     {
