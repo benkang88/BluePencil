@@ -266,7 +266,7 @@ void post_location(float lat, float lon)
 
 uint8_t get_num_pencils(){
   sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/pencil_update.py?station=%s  HTTP/1.1\r\n", STATION_NAME);
-  Serial.printf("%s", request);
+  // Serial.printf("%s", request);
   strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
   strcat(request, "\r\n");
   sprintf(response, "");
@@ -274,9 +274,9 @@ uint8_t get_num_pencils(){
   return atoi(response);
 }
 
-void post_num_pencils(){
+void post_num_pencils(int pencil_change){
   char body[1000]; // for body
-  sprintf(body, "station=%s&num_pencils=%d", STATION_NAME, num_pencils);
+  sprintf(body, "station=%s&num_pencils=%d", STATION_NAME, pencil_change);
   int len = strlen(body);
   request[0] = '\0'; // set 0th byte to null
   int offset = sprintf(request + offset, "POST %s?%s  HTTP/1.1\r\n", "http://608dev-2.net/sandbox/sc/team39/pencil_update.py", body);
@@ -285,10 +285,10 @@ void post_num_pencils(){
   offset += sprintf(request + offset, "cache-control: no-cache\r\n");
   offset += sprintf(request + offset, "Content-Length: %d\r\n\r\n", len);
   offset += sprintf(request + offset, "%s\r\n", body);
-  Serial.printf("Request: %s\n\n\n\n", request);
+  // Serial.printf("Request: %s\n\n\n\n", request);
   sprintf(response, "");
   do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
-  Serial.printf("Response: %s", response);
+  Serial.printf("%s\n", response);
 }
 
 bool check_input_code(int dig1, int dig2, int dig3)
@@ -308,9 +308,9 @@ void loop()
   if(digitalRead(CLICKER) == LOW){
     if(!returning){
       num_pencils++;
-      post_num_pencils();
-      Serial.println("Returned");
-      Serial.println(num_pencils);
+      post_num_pencils(1);
+      // Serial.println("Returned");
+      // Serial.println(num_pencils);
       returning = true;
     }
   }
