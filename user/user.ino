@@ -244,24 +244,13 @@ void clear_nearby_stations()
   }
 }
 
-// returns number of non-empty strings in nearby_stations
-int get_number_nearby_stations()
-{
-  int count;
-  for (count = 0; count < max_nearby_stations; count++)
-  {
-    if (strlen(nearby_stations[count]) == 0)
-    {
-      break;
-    }
-  }
-  // Serial.printf("number of nearby stations: %d\n", count);
-  return count;
-}
-
 void update_nearby_stations()
 {
   clear_nearby_stations();
+  /*Serial.println('latitude');
+  Serial.println(latitude);
+  Serial.println('longitude');
+  Serial.println(longitude);*/
   sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/get_nearest_locations.py?lat=%f%&lon=%f&radius=100  HTTP/1.1\r\n", latitude, longitude);
   // sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/get_nearest_locations.py?lat=%f%&lon=%f&radius=%f  HTTP/1.1\r\n", -71.095, 42.359, 100);
   // Serial.printf("%s", request);
@@ -269,12 +258,22 @@ void update_nearby_stations()
   strcat(request, "\r\n");
   sprintf(response, "");
   do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
-  // Serial.println(longitude);
-  // Serial.println(request);
-  // Serial.println(latitude);
-  // Serial.println(response);
   sprintf(nearby_stations[0], "STATION");
-  num_nearby_stations = get_number_nearby_stations();
+  int i = 0;
+  num_nearby_stations = 0;
+  char* cur_station = strtok(response, "'");
+  while (floor(i/2) < max_nearby_stations && cur_station != NULL) {
+    if (i % 2 == 1) {
+      strcpy(nearby_stations[(int) floor(i/2)], cur_station);
+      num_nearby_stations++;
+    }
+    i++;
+    cur_station = strtok(NULL, "'");
+  }
+  Serial.println(num_nearby_stations);
+  for (int i = 0; i < num_nearby_stations; i++) {
+    Serial.printf("%s%n", nearby_stations[i]);
+  }
   if (num_nearby_stations == 0)
   {
     station_select = 0;
@@ -663,7 +662,7 @@ void loop()
 
   else if (system_state == CHECKOUT)
   {
-    Serial.printf("Current button value is: %d\n", bv);
+    // Serial.printf("Current button value is: %d\n", bv);
     if (checkout_state == SEARCH)
     {
       if (millis() - station_search_timer > station_search_period)
