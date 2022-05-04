@@ -27,7 +27,7 @@ def request_handler(request):
         conn.close()
         #things = c.execute('''SELECT * from station_table WHERE station = ?;''', (station_name,)).fetchone()
         #return things
-    elif request["method"] == "GET":
+    elif request["method"] = "GET":
         lat = 0
         lon = 0
         radius = 0
@@ -62,15 +62,12 @@ def getLocations(coord, locations, radius):
     distances = []
     new_locs = []
     for loc in locations:
-         if distance(coord, locations[loc]) < radius:
+         if distance(coord, loc) < radius:
             closestLocations.append(loc)
-            distances.append(distance(coord, locations[loc]))
-            new_locs.append(locations[loc])
+            distances.append(distance(coord, loc))
+            new_locs.append(loc)
     sortedIndices = [i[0] for i in sorted(enumerate(distances), key=lambda x:x[1])]
-    out = ""
-    for i in  sortedIndices:
-        out += str(closestLocations[i]) + "*" + str(distances[i]) + "*" + str(new_locs[i][0]) + "*" + str(new_locs[i][1]) + "#"
-    return out[:-1]
+    return [(closestLocations[i], distances[i], new_locs[i]) for i in sortedIndices]
 
 def sign(x):
     if x > 0:

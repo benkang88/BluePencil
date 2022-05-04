@@ -181,6 +181,7 @@ login_status login_state;
 enum checkout_status
 {
   SEARCH,
+  MAP,
   SELECTED,
   DISPLAY_CODE,
   EXPIRED
@@ -196,7 +197,6 @@ char unlock_code[10];
 char code_status[100];
 const uint32_t station_search_period = 15000; // send out GET request for nearby stations every 5 seconds
 char selected_station[100];
-int num_nearby_stations = 0;
 
 float longitude;
 float latitude;
@@ -234,6 +234,10 @@ Button button4(BUTTON4_PIN);
 
 const int max_nearby_stations = 5;
 char nearby_stations[max_nearby_stations][100];
+int num_nearby_stations = 0;
+int offsets[max_nearby_stations];
+float distances[max_nearby_stations];
+float locs[max_nearby_stations][2];
 int station_select = 0;
 
 void location_post()
@@ -459,8 +463,8 @@ void loop()
 
   if (system_state != STARTUP && system_state != LOGIN)
   {
-    location_post();
-    update_nearby_stations();
+    //location_post();
+    //update_nearby_stations();
   }
 
   if (system_state == STARTUP)
@@ -701,6 +705,7 @@ void loop()
       {
         station_select = (num_nearby_stations == 0) ? 0 : (station_select + 1) % num_nearby_stations;
         display_nearby_stations();
+        checkout_state = MAP;
       }
       else if (bv4 > 0)
       {
@@ -720,6 +725,22 @@ void loop()
         get_unlock_code(selected_station);
         fetch_code_timer = millis();
         checkout_state = SELECTED;
+      }
+    }
+    else if (checkout_state == MAP) {
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0, 2);
+      tft.setTextColor(TFT_BLUE, TFT_BLACK);
+      tft.println("BluePencils\n");
+      tft.setTextColor(TFT_GREEN, TFT_BLACK);
+      tft.setCursor(63, 79, 1);
+      tft.print(".");
+      tft.setTextColor(TFT_WHITE, TFT_BLACK);
+      for (int i = 0; i < max_nearby_stations; i++) {
+        int x = 63 + ceil(64 * (locs[i][0] - latitude) / 0.02);
+        int y = 79 + ceil(80 * (locs[i][1] - longitude) / 0.03);
+        tft.setCursor(x, y, 1);
+        tft.print(".");
       }
     }
     else if (checkout_state == SELECTED)
