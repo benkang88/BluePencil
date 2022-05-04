@@ -236,6 +236,23 @@ const int max_nearby_stations = 5;
 char nearby_stations[max_nearby_stations][100];
 int station_select = 0;
 
+void location_post()
+{
+  char body[1000]; // for body
+  sprintf(body, "username=%s&lat=%f&lon=%f", username, latitude, longitude);
+  int len = strlen(body);
+  request[0] = '\0'; // set 0th byte to null
+  int offset = sprintf(request + offset, "POST %s?%s  HTTP/1.1\r\n", "http://608dev-2.net/sandbox/sc/team39/user_location.py", body);
+  offset += sprintf(request + offset, "Host: 608dev-2.net\r\n");
+  offset += sprintf(request + offset, "Content-Type: application/x-www-form-urlencoded\r\n");
+  offset += sprintf(request + offset, "cache-control: no-cache\r\n");
+  offset += sprintf(request + offset, "Content-Length: %d\r\n\r\n", len);
+  offset += sprintf(request + offset, "%s\r\n", body);
+  Serial.printf("Request: %s\n\n\n\n", request);
+  do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
+  Serial.printf("Response: %s\n", response);
+}
+
 void clear_nearby_stations()
 {
   for (int i = 0; i < max_nearby_stations; i++)
@@ -439,6 +456,12 @@ void loop()
   else if (bv2 > 0)
     bv = 2;
   // Serial.printf("Current button value is: %d\n", bv);
+
+  if (system_state != STARTUP && system_state != LOGIN)
+  {
+    location_post();
+    update_nearby_stations();
+  }
 
   if (system_state == STARTUP)
   {
