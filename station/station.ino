@@ -293,6 +293,24 @@ void post_num_pencils(int pencil_change)
   Serial.printf("%s\n", response);
 }
 
+void return_pencil()
+{
+  char body[1000]; // for body
+  sprintf(body, "lat=%f&lon=%f", lat, lon);
+  int len = strlen(body);
+  request[0] = '\0'; // set 0th byte to null
+  int offset = sprintf(request + offset, "POST %s?%s  HTTP/1.1\r\n", "http://608dev-2.net/sandbox/sc/team39/return_pencil.py", body);
+  offset += sprintf(request + offset, "Host: 608dev-2.net\r\n");
+  offset += sprintf(request + offset, "Content-Type: application/x-www-form-urlencoded\r\n");
+  offset += sprintf(request + offset, "cache-control: no-cache\r\n");
+  offset += sprintf(request + offset, "Content-Length: %d\r\n\r\n", len);
+  offset += sprintf(request + offset, "%s\r\n", body);
+  Serial.printf("Request: %s\n\n\n\n", request);
+  sprintf(response, "");
+  do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
+  Serial.printf("Response: %s", response);
+}
+
 bool check_input_code(int dig1, int dig2, int dig3)
 {
   sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/code_checker.py?station=%s&first=%d%&second=%d&third=%d  HTTP/1.1\r\n", STATION_NAME, dig1, dig2, dig3);
