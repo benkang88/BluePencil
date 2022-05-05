@@ -235,7 +235,6 @@ Button button4(BUTTON4_PIN);
 const int max_nearby_stations = 5;
 char nearby_stations[max_nearby_stations][100];
 int num_nearby_stations = 0;
-int offsets[max_nearby_stations];
 float distances[max_nearby_stations];
 float locs[max_nearby_stations][2];
 int station_select = 0;
@@ -268,22 +267,17 @@ void clear_nearby_stations()
 void update_nearby_stations()
 {
   clear_nearby_stations();
-<<<<<<< Updated upstream
   /*Serial.println('latitude');
   Serial.println(latitude);
   Serial.println('longitude');
   Serial.println(longitude);*/
   sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/get_nearest_locations.py?lat=%f%&lon=%f&radius=100  HTTP/1.1\r\n", latitude, longitude);
-=======
-  sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/get_nearest_locations.py?lat=%f%&lon=%f&radius=10000  HTTP/1.1\r\n", latitude, longitude);
->>>>>>> Stashed changes
   // sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/get_nearest_locations.py?lat=%f%&lon=%f&radius=%f  HTTP/1.1\r\n", -71.095, 42.359, 100);
   // Serial.printf("%s", request);
   strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
   strcat(request, "\r\n");
   sprintf(response, "");
   do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
-<<<<<<< Updated upstream
   sprintf(nearby_stations[0], "STATION");
   int i = 0;
   num_nearby_stations = 0;
@@ -300,77 +294,6 @@ void update_nearby_stations()
   for (int i = 0; i < num_nearby_stations; i++) {
     Serial.printf("%s%n", nearby_stations[i]);
   }
-=======
-  // Serial.println(longitude);
-  // Serial.println(request);
-  // Serial.println(latitude);
-  // Serial.println(response);
-  int response_state = 0;
-  char* temp;
-  int offset = 0;
-  int i = 0;
-  for (int j = 0; j < max_nearby_stations; j++) {
-    sprintf(nearby_stations[j], "");
-    distances[j] = 0;
-    offsets[j] = 0;
-    locs[j][0] = 0;
-    locs[j][1] = 0;
-  }
-  while (i < strlen(response)) {
-    Serial.println(i);
-    char current = response[i];
-    Serial.println(current);
-    switch (response_state) {
-      case 0:
-        if (current == '*') {
-          response_state = 1;
-          sprintf(temp, "");
-        }
-        else {
-          offsets[num_nearby_stations] += sprintf(nearby_stations[num_nearby_stations] + offsets[num_nearby_stations], "%c", current);
-        }
-        break;
-      case 1:
-        if (current == '*') {
-          response_state = 2;
-          distances[num_nearby_stations] = atof(temp);
-          sprintf(temp, "");
-          offset = 0;
-        }
-        else {
-          offset += sprintf(temp + offset, "%c", current);
-        }
-        break;
-      case 2:
-        if (current == '*') {
-          response_state = 3;
-          locs[num_nearby_stations][0] = atof(temp);
-          sprintf(temp, "");
-          offset = 0;
-        }
-        else {
-          offset += sprintf(temp + offset, "%c", current);
-        }
-        break;
-      case 3:
-        if (current == '#') {
-          response_state = 0;
-          locs[num_nearby_stations++][1] = atof(temp);
-          sprintf(temp, "");
-          offset = 0;
-        }
-        else {
-          offset += sprintf(temp + offset, "%c", current);
-        }
-        break;
-    }
-    Serial.println("end");
-    i++;
-  }
-  Serial.println(num_nearby_stations);
-  // sprintf(nearby_stations[0], "STATION");
-  // num_nearby_stations = get_number_nearby_stations();
->>>>>>> Stashed changes
   if (num_nearby_stations == 0)
   {
     station_select = 0;
@@ -380,7 +303,12 @@ void update_nearby_stations()
     station_select %= num_nearby_stations;
   }
 }
-void display_nearby_stations()
+
+void display_nearby_stations() {
+
+}
+
+void display_station_select()
 {
   // Serial.printf("Displaying nearby stations!\n");
   // Serial.printf("station_select: %d\n", station_select);
@@ -804,19 +732,7 @@ void loop()
       }
     }
     else if (checkout_state == MAP) {
-      tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0, 2);
-      tft.setTextColor(TFT_BLUE, TFT_BLACK);
-      tft.println("BluePencils\n");
-      tft.setTextColor(TFT_GREEN, TFT_BLACK);
-      tft.setCursor(63, 79, 1);
-      tft.print(".");
-      tft.setTextColor(TFT_WHITE, TFT_BLACK);
-      for (int i = 0; i < max_nearby_stations; i++) {
-        int x = 63 + ceil(64 * (locs[i][0] - latitude) / 0.02);
-        int y = 79 + ceil(80 * (locs[i][1] - longitude) / 0.03);
-        tft.setCursor(x, y, 1);
-        tft.print(".");
+      
       }
     }
     else if (checkout_state == SELECTED)
