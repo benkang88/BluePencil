@@ -311,9 +311,12 @@ void update_nearby_stations()
     Serial.printf("%s\n", nearby_stations[i]);
 =======
     Serial.printf("%s%n", nearby_stations[i]);
+<<<<<<< Updated upstream
 >>>>>>> Stashed changes
 =======
     Serial.printf("%s%n", nearby_stations[i]);
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
   }
   if (num_nearby_stations == 0)
