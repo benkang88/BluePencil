@@ -325,8 +325,8 @@ void update_nearby_stations()
 }
 
 void display_nearby_stations() {
-  float temp_locs[5][2] = {{42.359, -71.092}, {42.359, -71.095}, {42.361, -71.093}, {42.356, -71.098}, {42.36, -71.089}};
-  char* temp_nearby_stations[5] = {"Infinite Corridor/Killian", "Student Center", "Vassar Academic Buildings", "Simmons/Briggs", "East Campus"};
+  // float temp_locs[5][2] = {{42.359, -71.092}, {42.359, -71.095}, {42.361, -71.093}, {42.356, -71.098}, {42.36, -71.089}};
+  // char* temp_nearby_stations[5] = {"Infinite Corridor/Killian", "Student Center", "Vassar Academic Buildings", "Simmons/Briggs", "East Campus"};
   tft.fillScreen(TFT_BLACK);
   tft.setCursor(0, 0, 2);
   tft.setTextColor(TFT_BLUE, TFT_BLACK);
@@ -354,7 +354,7 @@ void display_nearby_stations() {
 
 void display_station_select()
 {
-  char* temp_nearby_stations[5] = {"Infinite Corridor/Killian", "Student Center", "Vassar Academic Buildings", "Simmons/Briggs", "East Campus"};
+  // char* temp_nearby_stations[5] = {"Infinite Corridor/Killian", "Student Center", "Vassar Academic Buildings", "Simmons/Briggs", "East Campus"};
   // Serial.printf("Displaying nearby stations!\n");
   // Serial.printf("station_select: %d\n", station_select);
   tft.fillScreen(TFT_BLACK);
