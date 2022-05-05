@@ -67,7 +67,7 @@ def getLocations(coord, locations, radius):
             distances.append(distance(coord, locations[loc]))
             locs.append(locations[loc])
     sortedIndices = [i[0] for i in sorted(enumerate(distances), key=lambda x:x[1])]
-    return [(closestLocations[i], distances[i], locs[i][0], locs[i][1]) for i in sortedIndices]
+    return [(closestLocations[i], str(locs[i][0]), str(locs[i][1])) for i in sortedIndices]
 
 def sign(x):
     if x > 0:
