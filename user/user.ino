@@ -187,12 +187,25 @@ enum checkout_status
   EXPIRED
 };
 checkout_status checkout_state;
+enum borrow_status
+{
+  BORROWING,
+  NOT_BORROWING
+};
+borrow_status borrow_state;
 uint32_t station_search_timer;
 uint32_t fetch_code_timer;
+uint32_t check_borrow_timer;
+uint32_t borrow_start;
+uint32_t borrow_timer;
+uint32_t borrow_duration;
 uint32_t temp_message_timer;
 const uint32_t fetch_code_wait = 2000;   // time to wait while geting code request
 const uint32_t code_status_wait = 1000;  // time to wait between consecutive checks of code status
 const uint32_t expired_code_wait = 3000; // amount of time to display code expiration message
+const uint32_t location_post_wait = 5000;
+const uint32_t check_borrow_wait = 2000;
+const uint32_t borrow_wait = 2000;
 char unlock_code[10];
 char code_status[100];
 const uint32_t station_search_period = 15000; // send out GET request for nearby stations every 5 seconds
@@ -224,8 +237,8 @@ bool welcome = false;
 
 int old_system_select;
 int system_select;
-const int NUM_SETTINGS = 4;
-char select_options[NUM_SETTINGS][100] = {"Find stations", "User stats", "Credits", "Logout"};
+const int NUM_SETTINGS = 5;
+char select_options[NUM_SETTINGS][100] = {"Find stations", "Borrow Status", "User stats", "Credits", "Logout"};
 
 Button button1(BUTTON1_PIN); // button object!
 Button button2(BUTTON2_PIN);
@@ -400,6 +413,46 @@ void username_password_post()
   Serial.printf("Response: %s\n", response);
 }
 
+uint32_t check_stats_timer;
+const uint32_t check_stats_wait = 3000;
+char user_stats[500];
+void update_user_stats()
+{
+  sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/get_stats.py?user=%s  HTTP/1.1\r\n", username);
+  strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
+  strcat(request, "\r\n");
+  sprintf(response, "");
+  do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
+  printf("response is: %s\n", response);
+  sprintf(user_stats, response);
+}
+
+char borrow_status[100] = "NO";
+void update_borrow_status()
+{
+  sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/return_pencil.py?user=%s  HTTP/1.1\r\n", username);
+  strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
+  strcat(request, "\r\n");
+  sprintf(response, "");
+  do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
+  printf("response is: %s\n", response);
+  sprintf(borrow_status, response);
+}
+
+void display_user_stats()
+{
+  tft.fillScreen(TFT_BLACK);
+  tft.setCursor(0, 0, 2);
+  tft.printf("%s\nPress any button to exit.\n", user_stats);
+}
+
+void display_credits()
+{
+  tft.fillScreen(TFT_BLACK);
+  tft.setCursor(0, 0, 2);
+  tft.println("Designed by Ben Kang, Allen Ding, Ezra Erives, Sid Muppalla, and Sebastian Zhu in Cambridge, Massachusetts\n\nPress any button to exit.\n");
+}
+
 void setup()
 {
   Serial.begin(115200);               // for debugging if needed.
@@ -464,9 +517,13 @@ void setup()
   login_state = START;
   checkout_state = SEARCH;
   system_state = STARTUP;
+  borrow_state = NOT_BORROWING;
 
   station_search_timer = 0;
   startup_timer = millis();
+  check_borrow_timer = millis();
+  borrow_timer = millis();
+  check_stats_timer = millis();
 }
 
 void loop()
@@ -681,13 +738,17 @@ void loop()
       }
       else if (system_select == 1)
       {
-        system_state = USER_STATS;
+        system_state = BORROW_VIEW;
       }
       else if (system_select == 2)
       {
-        system_state = CREDITS;
+        system_state = USER_STATS;
       }
       else if (system_select == 3)
+      {
+        system_state = CREDITS;
+      }
+      else if (system_select == 4)
       {
         login_state = START;
         system_state = LOGIN;
@@ -803,6 +864,10 @@ void loop()
         tft.printf("Code entered successfully!");
         checkout_state = SEARCH;
         system_state = BORROW_VIEW;
+        sprintf(borrow_status, "YES\n");
+        system_state = BORROW_VIEW;
+        borrow_state = BORROWING;
+        borrow_start = millis();
       }
       else if (strcmp(code_status, "EXPIRED\n") == 0)
       {
@@ -827,8 +892,24 @@ void loop()
   }
   else if (system_state == BORROW_VIEW)
   {
-    // shows current stats about the borrowing (how long they've been borrowing)
-    Serial.printf("Now borrowing a pencil!\n");
+    if (borrow_state == BORROWING)
+    {
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0, 2);
+      tft.printf("Currently borrowing a pencil!\nCurrent borrow duration: %d\n", millis() - borrow_start);
+    }
+    else if (borrow_state == NOT_BORROWING)
+    {
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0, 2);
+      tft.printf("Not currently borrowing a pencil!");
+    }
+    if (bv1 > 0 || bv2 > 0 || bv3 > 0 || bv4 > 0)
+    {
+      system_state = SELECT;
+      old_system_select = -1;
+      system_select = 0;
+    }
   }
   else if (system_state == USER_STATS)
   {
@@ -837,6 +918,22 @@ void loop()
 
   else if (system_state == CREDITS)
   {
+  }
+
+  // monitor for borrowing session to end
+  if (millis() - check_borrow_timer > check_borrow_wait)
+  {
+    check_borrow_timer = millis();
+    update_borrow_status();
+    if (strcmp(borrow_status, "YES\n"))
+    {
+      // borrow has ended
+      borrow_state = NOT_BORROWING;
+    }
+    else
+    {
+      borrow_state = BORROWING;
+    }
   }
 
   while (millis() - primary_timer < LOOP_PERIOD)
