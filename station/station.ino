@@ -16,7 +16,7 @@ const int BUTTON_PIN2 = 39;
 const int BUTTON_PIN3 = 38;
 const int BUTTON_PIN4 = 34;
 const int LOOP_PERIOD = 40;
-const int POST_LOCATION_PERIOD = 60000;
+const int POST_LOCATION_PERIOD = 5000;
 const int ROTATION_PERIOD = 450;
 float lat;
 float lon;
@@ -239,6 +239,9 @@ void setup()
   tft.printf("Station name:\n%s\n", STATION_NAME);
   tft.setTextColor(TFT_RED, TFT_BLACK);
   tft.print("Enter code: _ _ _");
+
+  get_latitude_longitude(&lat, &lon);
+  post_location(lat, lon);
 }
 
 bool valid_code = false;
@@ -248,8 +251,10 @@ int code_digit_3;
 
 void post_location(float lat, float lon)
 {
+  Serial.println("entered post_location");
   char body[1000]; // for body
   sprintf(body, "station=%s&lat=%f&lon=%f", STATION_NAME, lat, lon);
+  Serial.println("initialized body");
   int len = strlen(body);
   request[0] = '\0'; // set 0th byte to null
   int offset = sprintf(request + offset, "POST %s?%s  HTTP/1.1\r\n", "http://608dev-2.net/sandbox/sc/team39/get_nearest_locations.py", body);
@@ -493,11 +498,13 @@ int wifi_object_builder(char *object_string, uint32_t os_len, uint8_t channel, i
 
 void get_latitude_longitude(float *latitude, float *longitude)
 {
+  Serial.println("entered get_latitude_longitude");
   char json_body[1000]; // for body
   char pruned_response[OUT_BUFFER_SIZE];
   const uint16_t JSON_BODY_SIZE = 3000;
   const int MAX_APS = 5;
   int offset = sprintf(json_body, "%s", PREFIX);
+  Serial.println("got offset");
   int n = WiFi.scanNetworks(); // run a new scan. could also modify to use original scan from setup so quicker (though older info)
   Serial.println("scan done");
   if (n == 0)
