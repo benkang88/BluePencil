@@ -27,7 +27,7 @@ def request_handler(request):
         conn.close()
         #things = c.execute('''SELECT * from station_table WHERE station = ?;''', (station_name,)).fetchone()
         #return things
-    elif request["method"] == "GET":
+    else:
         lat = 0
         lon = 0
         radius = 0
@@ -60,14 +60,18 @@ def getLocations(coord, locations, radius):
 
     closestLocations = []
     distances = []
-    new_locs = []
+    locs = []
     for loc in locations:
          if distance(coord, locations[loc]) < radius:
             closestLocations.append(loc)
             distances.append(distance(coord, locations[loc]))
-            new_locs.append(locations[loc])
+            locs.append(locations[loc])
     sortedIndices = [i[0] for i in sorted(enumerate(distances), key=lambda x:x[1])]
+<<<<<<< Updated upstream
     return [(closestLocations[i], distances[i], new_locs[i][0], new_locs[i][1]) for i in sortedIndices]
+=======
+    return [(closestLocations[i], distances[i], locs[i][0], locs[i][1]) for i in sortedIndices]
+>>>>>>> Stashed changes
 
 def sign(x):
     if x > 0:
