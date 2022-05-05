@@ -187,11 +187,13 @@ enum checkout_status
 };
 checkout_status checkout_state;
 uint32_t station_search_timer;
+uint32_t location_post_timer;
 uint32_t fetch_code_timer;
 uint32_t temp_message_timer;
 const uint32_t fetch_code_wait = 2000;   // time to wait while geting code request
 const uint32_t code_status_wait = 1000;  // time to wait between consecutive checks of code status
 const uint32_t expired_code_wait = 3000; // amount of time to display code expiration message
+const uint32_t location_post_wait = 5000;
 char unlock_code[10];
 char code_status[100];
 const uint32_t station_search_period = 15000; // send out GET request for nearby stations every 5 seconds
@@ -376,6 +378,34 @@ void username_password_post()
   Serial.printf("Response: %s\n", response);
 }
 
+uint32_t check_stats_timer;
+const uint32_t check_stats_wait = 3000;
+char user_stats[500];
+void update_user_stats()
+{
+  sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/get_stats.py?user=%s  HTTP/1.1\r\n", username);
+  strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
+  strcat(request, "\r\n");
+  sprintf(response, "");
+  do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
+  printf("response is: %s\n", response);
+  sprintf(user_stats, response);
+}
+
+void display_user_stats()
+{
+  tft.fillScreen(TFT_BLACK);
+  tft.setCursor(0, 0, 2);
+  tft.printf("%s\nPress any button to exit.\n", user_stats);
+}
+
+void display_credits()
+{
+  tft.fillScreen(TFT_BLACK);
+  tft.setCursor(0, 0, 2);
+  tft.println("Designed by Ben Kang, Allen Ding, Ezra Erives, Sid Muppalla, and Sebastian Zhu in Cambridge Massachusetts\n\nPress any button to exit.\n");
+}
+
 void setup()
 {
   Serial.begin(115200);               // for debugging if needed.
@@ -443,6 +473,8 @@ void setup()
 
   station_search_timer = 0;
   startup_timer = millis();
+
+  check_stats_timer = millis();
 }
 
 void loop()
@@ -460,8 +492,14 @@ void loop()
 
   if (system_state != STARTUP && system_state != LOGIN)
   {
-    location_post();
-    update_nearby_stations();
+    // every location_post_wait ms (5000 ms), GET updated location, and POST to server
+    if (millis() - location_post_timer > location_post_wait)
+    {
+      get_latitude_longitude(&latitude, &longitude);
+      location_post();
+      update_nearby_stations();
+      location_post_timer = millis();
+    }
   }
 
   if (system_state == STARTUP)
@@ -662,6 +700,7 @@ void loop()
       else if (system_select == 2)
       {
         system_state = CREDITS;
+        display_credits();
       }
       else if (system_select == 3)
       {
@@ -686,12 +725,10 @@ void loop()
 
   else if (system_state == CHECKOUT)
   {
-    Serial.printf("Current button value is: %d\n", bv);
     if (checkout_state == SEARCH)
     {
       if (millis() - station_search_timer > station_search_period)
       {
-        Serial.printf("doing GET stuff now at %d\n", millis());
         get_latitude_longitude(&latitude, &longitude);
         update_nearby_stations();
         display_nearby_stations();
@@ -753,7 +790,7 @@ void loop()
         tft.println("BluePencils\n");
         tft.printf("Code entered successfully!");
         checkout_state = SEARCH;
-        system_state = BORROW_VIEW;
+        system_state = USER_STATS;
       }
       else if (strcmp(code_status, "EXPIRED\n") == 0)
       {
@@ -776,18 +813,30 @@ void loop()
       }
     }
   }
-  else if (system_state == BORROW_VIEW)
-  {
-    // shows current stats about the borrowing (how long they've been borrowing)
-    Serial.printf("Now borrowing a pencil!\n");
-  }
   else if (system_state == USER_STATS)
   {
-    // when looking for a closer station
+    if (millis() - check_stats_timer > check_stats_wait)
+    {
+      update_user_stats();
+      display_user_stats();
+      check_stats_timer = millis();
+    }
+    if (bv1 > 0 || bv2 > 0 || bv3 > 0 || bv4 > 0)
+    {
+      system_state = SELECT;
+      old_system_select = -1;
+      system_select = 0;
+    }
   }
 
   else if (system_state == CREDITS)
   {
+    if (bv1 > 0 || bv2 > 0 || bv3 > 0 || bv4 > 0)
+    {
+      system_state = SELECT;
+      old_system_select = -1;
+      system_select = 0;
+    }
   }
 
   while (millis() - primary_timer < LOOP_PERIOD)

@@ -25,8 +25,8 @@ MPU6050 imu; // imu object called, appropriately, imu
 
 // char network[] = "MIT";    // SSID for .08 Lab
 // char wifi_password[] = ""; // Password for 6.08 Lab
-char network[] = "MIT";  //SSID for .08 Lab
-char wifi_password[] = ""; //Password for 6.08 Lab
+char network[] = "MIT";    // SSID for .08 Lab
+char wifi_password[] = ""; // Password for 6.08 Lab
 char POST_URL[] = "http://608dev-2.net/sandbox/sc/team39/login.py";
 
 // Prefix to POST request:
@@ -40,8 +40,8 @@ WiFiClientSecure client; // global WiFiClient Secure object
 WiFiClient client2;      // global WiFiClient Secure object
 
 // Some constants and some resources:
-const int RESPONSE_TIMEOUT = 6000;     // ms to wait for response from host
-const uint16_t IN_BUFFER_SIZE = 1000;  // size of buffer to hold HTTP request
+const int RESPONSE_TIMEOUT = 6000;      // ms to wait for response from host
+const uint16_t IN_BUFFER_SIZE = 1000;   // size of buffer to hold HTTP request
 const uint16_t OUT_BUFFER_SIZE = 10000; // size of buffer to hold HTTP response
 const char STATION_NAME[] = "STATION";
 char request[IN_BUFFER_SIZE];
@@ -51,7 +51,7 @@ char response[OUT_BUFFER_SIZE];     // char array buffer to hold HTTP request
 // pins for LCD and AUDIO CONTROL
 uint8_t LCD_CONTROL = 21;
 uint8_t AUDIO_TRANSDUCER = 14;
-uint8_t MOTOR1 = 11; 
+uint8_t MOTOR1 = 11;
 uint8_t MOTOR2 = 10;
 uint8_t CLICKER = 1;
 
@@ -264,7 +264,8 @@ void post_location(float lat, float lon)
   Serial.printf("Response: %s", response);
 }
 
-uint8_t get_num_pencils(){
+uint8_t get_num_pencils()
+{
   sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/pencil_update.py?station=%s  HTTP/1.1\r\n", STATION_NAME);
   // Serial.printf("%s", request);
   strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
@@ -274,7 +275,8 @@ uint8_t get_num_pencils(){
   return atoi(response);
 }
 
-void post_num_pencils(int pencil_change){
+void post_num_pencils(int pencil_change)
+{
   char body[1000]; // for body
   sprintf(body, "station=%s&num_pencils=%d", STATION_NAME, pencil_change);
   int len = strlen(body);
@@ -305,8 +307,10 @@ bool check_input_code(int dig1, int dig2, int dig3)
 
 void loop()
 {
-  if(digitalRead(CLICKER) == LOW){
-    if(!returning){
+  if (digitalRead(CLICKER) == LOW)
+  {
+    if (!returning)
+    {
       num_pencils++;
       post_num_pencils(1);
       // Serial.println("Returned");
@@ -314,7 +318,8 @@ void loop()
       returning = true;
     }
   }
-  else{
+  else
+  {
     returning = false;
   }
   int bv1 = button1.update();
@@ -328,11 +333,15 @@ void loop()
   }
   if (station_state == WAITING_FOR_CODE_DIGIT_1)
   {
-    if (bv1 > 0) code_digit_1 = 1;
-    else if (bv2 > 0) code_digit_1 = 2;
-    else if (bv3 > 0) code_digit_1 = 3;
-    
-    if (bv1 > 0 || bv2 > 0 || bv3 > 0) {
+    if (bv1 > 0)
+      code_digit_1 = 1;
+    else if (bv2 > 0)
+      code_digit_1 = 2;
+    else if (bv3 > 0)
+      code_digit_1 = 3;
+
+    if (bv1 > 0 || bv2 > 0 || bv3 > 0)
+    {
       station_state = WAITING_FOR_CODE_DIGIT_2;
       tft.fillScreen(TFT_BLACK);
       tft.setCursor(0, 0, 2);
@@ -345,11 +354,15 @@ void loop()
   }
   else if (station_state == WAITING_FOR_CODE_DIGIT_2)
   {
-    if (bv1 > 0) code_digit_2 = 1;
-    else if (bv2 > 0) code_digit_2 = 2;
-    else if (bv3 > 0) code_digit_2 = 3;
-    
-    if (bv1 > 0 || bv2 > 0 || bv3 > 0) {
+    if (bv1 > 0)
+      code_digit_2 = 1;
+    else if (bv2 > 0)
+      code_digit_2 = 2;
+    else if (bv3 > 0)
+      code_digit_2 = 3;
+
+    if (bv1 > 0 || bv2 > 0 || bv3 > 0)
+    {
       station_state = WAITING_FOR_CODE_DIGIT_3;
       tft.fillScreen(TFT_BLACK);
       tft.setCursor(0, 0, 2);
@@ -362,11 +375,15 @@ void loop()
   }
   else if (station_state == WAITING_FOR_CODE_DIGIT_3)
   {
-    if (bv1 > 0) code_digit_3 = 1;
-    else if (bv2 > 0) code_digit_3 = 2;
-    else if (bv3 > 0) code_digit_3 = 3;
-    
-    if (bv1 > 0 || bv2 > 0 || bv3 > 0) {
+    if (bv1 > 0)
+      code_digit_3 = 1;
+    else if (bv2 > 0)
+      code_digit_3 = 2;
+    else if (bv3 > 0)
+      code_digit_3 = 3;
+
+    if (bv1 > 0 || bv2 > 0 || bv3 > 0)
+    {
       station_state = CHECK_CODE;
       tft.fillScreen(TFT_BLACK);
       tft.setCursor(0, 0, 2);
@@ -394,7 +411,7 @@ void loop()
       digitalWrite(MOTOR1, HIGH);
       digitalWrite(MOTOR2, LOW);
       num_pencils--;
-      post_num_pencils();
+      post_num_pencils(-1);
     }
     else
     {
@@ -409,7 +426,8 @@ void loop()
   }
   else if (station_state == UNLOCKED)
   {
-    if (millis() - rotation_timer > ROTATION_PERIOD) {
+    if (millis() - rotation_timer > ROTATION_PERIOD)
+    {
       digitalWrite(MOTOR1, LOW);
       digitalWrite(MOTOR2, LOW);
       station_state = WAITING_FOR_CODE_DIGIT_1;
