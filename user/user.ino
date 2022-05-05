@@ -307,8 +307,6 @@ void update_nearby_stations()
   Serial.println(num_nearby_stations);
   for (int i = 0; i < num_nearby_stations; i++) {
     Serial.printf("%s\n", nearby_stations[i]);
-    Serial.printf("%s%n", nearby_stations[i]);
-    Serial.printf("%s%n", nearby_stations[i]);
   }
   if (num_nearby_stations == 0)
   {

@@ -67,19 +67,7 @@ def getLocations(coord, locations, radius):
             distances.append(distance(coord, locations[loc]))
             locs.append(locations[loc])
     sortedIndices = [i[0] for i in sorted(enumerate(distances), key=lambda x:x[1])]
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-    return [(closestLocations[i], distances[i], new_locs[i][0], new_locs[i][1]) for i in sortedIndices]
-=======
     return [(closestLocations[i], distances[i], locs[i][0], locs[i][1]) for i in sortedIndices]
->>>>>>> Stashed changes
-=======
-    return [(closestLocations[i], distances[i], locs[i][0], locs[i][1]) for i in sortedIndices]
->>>>>>> Stashed changes
-=======
-    return [(closestLocations[i], distances[i], locs[i][0], locs[i][1]) for i in sortedIndices]
->>>>>>> Stashed changes
 
 def sign(x):
     if x > 0:
