@@ -295,14 +295,20 @@ void update_nearby_stations()
   sprintf(nearby_stations[0], "STATION");
   int i = 0;
   num_nearby_stations = 0;
-  char* cur_station = strtok(response, "'");
-  while (floor(i/2) < max_nearby_stations && cur_station != NULL) {
-    if (i % 2 == 1) {
-      strcpy(nearby_stations[(int) floor(i/2)], cur_station);
+  char* cur_val = strtok(response, "'");
+  while (floor(i/6) < max_nearby_stations && cur_val != NULL) {
+    if (i % 6 == 1) {
+      strcpy(nearby_stations[(int) floor(i/6)], cur_val);
       num_nearby_stations++;
     }
+    else if (i % 6 == 3) { 
+      locs[(int) floor(i/6)][0] = atof(cur_val);
+    }
+    else if (i % 6 == 5) {
+      locs[(int) floor(i/6)][1] = atof(cur_val);
+    }
     i++;
-    cur_station = strtok(NULL, "'");
+    cur_val = strtok(NULL, "'");
   }
   Serial.println(num_nearby_stations);
   for (int i = 0; i < num_nearby_stations; i++) {
@@ -326,21 +332,21 @@ void display_nearby_stations() {
   tft.setTextColor(TFT_BLUE, TFT_BLACK);
   tft.println("BluePencils\n");
   tft.setTextColor(TFT_RED, TFT_BLACK);
-  tft.print(temp_nearby_stations[station_select]);
+  tft.print(nearby_stations[station_select]);
   tft.setTextColor(TFT_GREEN, TFT_BLACK);
   tft.setCursor(60, 85, 1);
   tft.print(".");
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   for (int i = 0; i < max_nearby_stations; i++) {
     if (i == station_select) continue;
-    int x = 60 + ceil(61 * (temp_locs[i][0] - latitude) / 0.01);
-    int y = 85 + ceil(61 * (temp_locs[i][1] - longitude) / 0.01);
+    int x = 60 + ceil(61 * (locs[i][0] - latitude) / 0.01);
+    int y = 85 + ceil(61 * (locs[i][1] - longitude) / 0.01);
     Serial.println(x, y);
     tft.setCursor(x, y, 1);
     tft.print(".");
   }
-  int x = 60 + ceil(61 * (temp_locs[station_select][0] - latitude) / 0.01);
-  int y = 85 + ceil(61 * (temp_locs[station_select][1] - longitude) / 0.01);
+  int x = 60 + ceil(61 * (locs[station_select][0] - latitude) / 0.01);
+  int y = 85 + ceil(61 * (locs[station_select][1] - longitude) / 0.01);
   tft.setCursor(x, y, 1);
   tft.setTextColor(TFT_RED, TFT_BLACK);
   tft.print(".");
@@ -356,7 +362,7 @@ void display_station_select()
   tft.setTextColor(TFT_BLUE, TFT_BLACK);
   tft.println("BluePencils\n");
   tft.setTextColor(TFT_RED, TFT_BLACK);
-  tft.printf("%s\n\n", temp_nearby_stations[station_select]);
+  tft.printf("%s\n\n", nearby_stations[station_select]);
   if (search_select == 0) {
     tft.print("[*] SELECT\n    BACK");
   }
