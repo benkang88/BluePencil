@@ -238,6 +238,7 @@ int num_nearby_stations = 0;
 float distances[max_nearby_stations];
 float locs[max_nearby_stations][2];
 int station_select = 0;
+int search_select = 0;
 
 void location_post()
 {
@@ -292,7 +293,7 @@ void update_nearby_stations()
   }
   Serial.println(num_nearby_stations);
   for (int i = 0; i < num_nearby_stations; i++) {
-    Serial.printf("%s%n", nearby_stations[i]);
+    Serial.printf("%s\n", nearby_stations[i]);
   }
   if (num_nearby_stations == 0)
   {
@@ -305,33 +306,49 @@ void update_nearby_stations()
 }
 
 void display_nearby_stations() {
-
+  float temp_locs[5][2] = {{42.359, -71.092}, {42.359, -71.095}, {42.361, -71.093}, {42.356, -71.098}, {42.36, -71.089}};
+  char* temp_nearby_stations[5] = {"Infinite Corridor/Killian", "Student Center", "Vassar Academic Buildings", "Simmons/Briggs", "East Campus"};
+  tft.fillScreen(TFT_BLACK);
+  tft.setCursor(0, 0, 2);
+  tft.setTextColor(TFT_BLUE, TFT_BLACK);
+  tft.println("BluePencils\n");
+  tft.setTextColor(TFT_RED, TFT_BLACK);
+  tft.print(temp_nearby_stations[station_select]);
+  tft.setTextColor(TFT_GREEN, TFT_BLACK);
+  tft.setCursor(60, 85, 1);
+  tft.print(".");
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  for (int i = 0; i < max_nearby_stations; i++) {
+    if (i == station_select) continue;
+    int x = 60 + ceil(61 * (temp_locs[i][0] - latitude) / 0.01);
+    int y = 85 + ceil(61 * (temp_locs[i][1] - longitude) / 0.01);
+    Serial.println(x, y);
+    tft.setCursor(x, y, 1);
+    tft.print(".");
+  }
+  int x = 60 + ceil(61 * (temp_locs[station_select][0] - latitude) / 0.01);
+  int y = 85 + ceil(61 * (temp_locs[station_select][1] - longitude) / 0.01);
+  tft.setCursor(x, y, 1);
+  tft.setTextColor(TFT_RED, TFT_BLACK);
+  tft.print(".");
 }
 
 void display_station_select()
 {
+  char* temp_nearby_stations[5] = {"Infinite Corridor/Killian", "Student Center", "Vassar Academic Buildings", "Simmons/Briggs", "East Campus"};
   // Serial.printf("Displaying nearby stations!\n");
   // Serial.printf("station_select: %d\n", station_select);
   tft.fillScreen(TFT_BLACK);
   tft.setCursor(0, 0, 2);
   tft.setTextColor(TFT_BLUE, TFT_BLACK);
   tft.println("BluePencils\n");
-  if (num_nearby_stations == 0)
-  {
-    tft.printf("No nearby stations!\n");
+  tft.setTextColor(TFT_RED, TFT_BLACK);
+  tft.printf("%s\n\n", temp_nearby_stations[station_select]);
+  if (search_select == 0) {
+    tft.print("[*] SELECT\n    BACK");
   }
-  else
-  {
-    tft.setTextColor(TFT_RED, TFT_BLACK);
-    tft.printf("Nearby stations:\n");
-    for (int i = 0; i < num_nearby_stations; i++)
-    {
-      if (station_select == i)
-        tft.printf("[*] ");
-      else
-        tft.print("    ");
-      tft.printf("%s\n", nearby_stations[i]);
-    }
+  else {
+    tft.print("    SELECT\n[*] BACK");
   }
 }
 
@@ -342,7 +359,7 @@ void get_unlock_code(char selected_station[])
   strcat(request, "\r\n");
   sprintf(response, "");
   do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
-  printf("response is: %s\n", response);
+  Serial.printf("response is: %s\n", response);
   sprintf(unlock_code, response);
 }
 
@@ -701,6 +718,7 @@ void loop()
         Serial.printf("doing GET stuff now at %d\n", millis());
         get_latitude_longitude(&latitude, &longitude);
         update_nearby_stations();
+        // num_nearby_stations = 5;
         display_nearby_stations();
         station_search_timer = millis();
       }
@@ -709,30 +727,49 @@ void loop()
       {
         station_select = (num_nearby_stations == 0) ? 0 : (station_select + 1) % num_nearby_stations;
         display_nearby_stations();
-        checkout_state = MAP;
       }
       else if (bv4 > 0)
       {
         station_select = (num_nearby_stations == 0) ? 0 : (station_select + num_nearby_stations - 1) % num_nearby_stations;
         display_nearby_stations();
       }
-      else if (bv > 0)
+      else if (bv == 1)
       {
-        sprintf(selected_station, "%s", nearby_stations[station_select]);
-        Serial.printf("station is now: %s\n", selected_station);
-        tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0, 2);
-        tft.setTextColor(TFT_BLUE, TFT_BLACK);
-        tft.println("BluePencils\n");
-        tft.setTextColor(TFT_RED, TFT_BLACK);
-        tft.printf("Fetching code for station: %s", selected_station);
-        get_unlock_code(selected_station);
-        fetch_code_timer = millis();
-        checkout_state = SELECTED;
+        display_station_select();
+        checkout_state = MAP;
+        
+      }
+      else if (bv == 2) { 
+        system_state = SELECT;
+        old_system_select = -1;
+        system_select = 0;
       }
     }
+
     else if (checkout_state == MAP) {
-      
+      if (bv3 > 0 || bv4 > 0) {
+        search_select = (search_select + 1) % 2;
+        display_station_select();
+      }
+      else if (bv > 0) {
+        if (search_select == 0) {
+          sprintf(selected_station, "%s", nearby_stations[station_select]);
+          Serial.printf("station is now: %s\n", selected_station);
+          tft.fillScreen(TFT_BLACK);
+          tft.setCursor(0, 0, 2);
+          tft.setTextColor(TFT_BLUE, TFT_BLACK);
+          tft.println("BluePencils\n");
+          tft.setTextColor(TFT_RED, TFT_BLACK);
+          tft.printf("Fetching code for station: %s", selected_station);
+          get_unlock_code(selected_station);
+          fetch_code_timer = millis();
+          checkout_state = SELECTED;
+        }
+        else {
+          search_select = 0;
+          checkout_state = SEARCH;
+          display_nearby_stations();
+        }
       }
     }
     else if (checkout_state == SELECTED)
