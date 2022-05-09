@@ -181,24 +181,35 @@ login_status login_state;
 enum checkout_status
 {
   SEARCH,
+  MAP,
   SELECTED,
   DISPLAY_CODE,
   EXPIRED
 };
 checkout_status checkout_state;
+enum borrow_status
+{
+  BORROWING,
+  NOT_BORROWING
+};
+borrow_status borrow_state;
 uint32_t station_search_timer;
-uint32_t location_post_timer;
 uint32_t fetch_code_timer;
+uint32_t check_borrow_timer;
+uint32_t borrow_start;
+uint32_t borrow_timer;
+uint32_t borrow_duration;
 uint32_t temp_message_timer;
 const uint32_t fetch_code_wait = 2000;   // time to wait while geting code request
 const uint32_t code_status_wait = 1000;  // time to wait between consecutive checks of code status
 const uint32_t expired_code_wait = 3000; // amount of time to display code expiration message
 const uint32_t location_post_wait = 5000;
+const uint32_t check_borrow_wait = 2000;
+const uint32_t borrow_wait = 2000;
 char unlock_code[10];
 char code_status[100];
 const uint32_t station_search_period = 15000; // send out GET request for nearby stations every 5 seconds
 char selected_station[100];
-int num_nearby_stations = 0;
 
 float longitude;
 float latitude;
@@ -226,8 +237,8 @@ bool welcome = false;
 
 int old_system_select;
 int system_select;
-const int NUM_SETTINGS = 4;
-char select_options[NUM_SETTINGS][100] = {"Find stations", "User stats", "Credits", "Logout"};
+const int NUM_SETTINGS = 5;
+char select_options[NUM_SETTINGS][100] = {"Find stations", "Borrow Status", "User stats", "Credits", "Logout"};
 
 Button button1(BUTTON1_PIN); // button object!
 Button button2(BUTTON2_PIN);
@@ -236,7 +247,11 @@ Button button4(BUTTON4_PIN);
 
 const int max_nearby_stations = 5;
 char nearby_stations[max_nearby_stations][100];
+int num_nearby_stations = 0;
+float distances[max_nearby_stations];
+float locs[max_nearby_stations][2];
 int station_select = 0;
+int search_select = 0;
 
 void location_post()
 {
@@ -280,21 +295,24 @@ void update_nearby_stations()
   sprintf(nearby_stations[0], "STATION");
   int i = 0;
   num_nearby_stations = 0;
-  char *cur_station = strtok(response, "'");
-  while (floor(i / 2) < max_nearby_stations && cur_station != NULL)
-  {
-    if (i % 2 == 1)
-    {
-      strcpy(nearby_stations[(int)floor(i / 2)], cur_station);
+  char* cur_val = strtok(response, "'");
+  while (floor(i/6) < max_nearby_stations && cur_val != NULL) {
+    if (i % 6 == 1) {
+      strcpy(nearby_stations[(int) floor(i/6)], cur_val);
       num_nearby_stations++;
     }
+    else if (i % 6 == 3) { 
+      locs[(int) floor(i/6)][0] = atof(cur_val);
+    }
+    else if (i % 6 == 5) {
+      locs[(int) floor(i/6)][1] = atof(cur_val);
+    }
     i++;
-    cur_station = strtok(NULL, "'");
+    cur_val = strtok(NULL, "'");
   }
   Serial.println(num_nearby_stations);
-  for (int i = 0; i < num_nearby_stations; i++)
-  {
-    Serial.printf("%s%n", nearby_stations[i]);
+  for (int i = 0; i < num_nearby_stations; i++) {
+    Serial.printf("%s\n", nearby_stations[i]);
   }
   if (num_nearby_stations == 0)
   {
@@ -305,30 +323,51 @@ void update_nearby_stations()
     station_select %= num_nearby_stations;
   }
 }
-void display_nearby_stations()
+
+void display_nearby_stations() {
+  // float temp_locs[5][2] = {{42.359, -71.092}, {42.359, -71.095}, {42.361, -71.093}, {42.356, -71.098}, {42.36, -71.089}};
+  // char* temp_nearby_stations[5] = {"Infinite Corridor/Killian", "Student Center", "Vassar Academic Buildings", "Simmons/Briggs", "East Campus"};
+  tft.fillScreen(TFT_BLACK);
+  tft.setCursor(0, 0, 2);
+  tft.setTextColor(TFT_BLUE, TFT_BLACK);
+  tft.println("BluePencils\n");
+  tft.setTextColor(TFT_RED, TFT_BLACK);
+  tft.print(nearby_stations[station_select]);
+  tft.setTextColor(TFT_GREEN, TFT_BLACK);
+  tft.setCursor(60, 85, 1);
+  tft.print(".");
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  for (int i = 0; i < max_nearby_stations; i++) {
+    if (i == station_select) continue;
+    int x = 60 + ceil(61 * (locs[i][0] - latitude) / 0.01);
+    int y = 85 + ceil(61 * (locs[i][1] - longitude) / 0.01);
+    Serial.println(x, y);
+    tft.setCursor(x, y, 1);
+    tft.print(".");
+  }
+  int x = 60 + ceil(61 * (locs[station_select][0] - latitude) / 0.01);
+  int y = 85 + ceil(61 * (locs[station_select][1] - longitude) / 0.01);
+  tft.setCursor(x, y, 1);
+  tft.setTextColor(TFT_RED, TFT_BLACK);
+  tft.print(".");
+}
+
+void display_station_select()
 {
+  // char* temp_nearby_stations[5] = {"Infinite Corridor/Killian", "Student Center", "Vassar Academic Buildings", "Simmons/Briggs", "East Campus"};
   // Serial.printf("Displaying nearby stations!\n");
   // Serial.printf("station_select: %d\n", station_select);
   tft.fillScreen(TFT_BLACK);
   tft.setCursor(0, 0, 2);
   tft.setTextColor(TFT_BLUE, TFT_BLACK);
   tft.println("BluePencils\n");
-  if (num_nearby_stations == 0)
-  {
-    tft.printf("No nearby stations!\n");
+  tft.setTextColor(TFT_RED, TFT_BLACK);
+  tft.printf("%s\n\n", nearby_stations[station_select]);
+  if (search_select == 0) {
+    tft.print("[*] SELECT\n    BACK");
   }
-  else
-  {
-    tft.setTextColor(TFT_RED, TFT_BLACK);
-    tft.printf("Nearby stations:\n");
-    for (int i = 0; i < num_nearby_stations; i++)
-    {
-      if (station_select == i)
-        tft.printf("[*] ");
-      else
-        tft.print("    ");
-      tft.printf("%s\n", nearby_stations[i]);
-    }
+  else {
+    tft.print("    SELECT\n[*] BACK");
   }
 }
 
@@ -339,7 +378,7 @@ void get_unlock_code(char selected_station[])
   strcat(request, "\r\n");
   sprintf(response, "");
   do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
-  printf("response is: %s\n", response);
+  Serial.printf("response is: %s\n", response);
   sprintf(unlock_code, response);
 }
 
@@ -394,6 +433,18 @@ void update_user_stats()
   sprintf(user_stats, response);
 }
 
+char borrow_status[100] = "NO";
+void update_borrow_status()
+{
+  sprintf(request, "GET http://608dev-2.net/sandbox/sc/team39/return_pencil.py?user=%s  HTTP/1.1\r\n", username);
+  strcat(request, "Host: 608dev-2.net\r\n"); // add more to the end
+  strcat(request, "\r\n");
+  sprintf(response, "");
+  do_http_request("608dev-2.net", request, response, OUT_BUFFER_SIZE, RESPONSE_TIMEOUT, false);
+  printf("response is: %s\n", response);
+  sprintf(borrow_status, response);
+}
+
 void display_user_stats()
 {
   tft.fillScreen(TFT_BLACK);
@@ -405,7 +456,7 @@ void display_credits()
 {
   tft.fillScreen(TFT_BLACK);
   tft.setCursor(0, 0, 2);
-  tft.println("Designed by Ben Kang, Allen Ding, Ezra Erives, Sid Muppalla, and Sebastian Zhu in Cambridge Massachusetts\n\nPress any button to exit.\n");
+  tft.println("Designed by Ben Kang, Allen Ding, Ezra Erives, Sid Muppalla, and Sebastian Zhu in Cambridge, Massachusetts\n\nPress any button to exit.\n");
 }
 
 void setup()
@@ -472,10 +523,12 @@ void setup()
   login_state = START;
   checkout_state = SEARCH;
   system_state = STARTUP;
+  borrow_state = NOT_BORROWING;
 
   station_search_timer = 0;
   startup_timer = millis();
-
+  check_borrow_timer = millis();
+  borrow_timer = millis();
   check_stats_timer = millis();
 }
 
@@ -494,14 +547,8 @@ void loop()
 
   if (system_state != STARTUP && system_state != LOGIN)
   {
-    // every location_post_wait ms (5000 ms), GET updated location, and POST to server
-    if (millis() - location_post_timer > location_post_wait)
-    {
-      get_latitude_longitude(&latitude, &longitude);
-      location_post();
-      update_nearby_stations();
-      location_post_timer = millis();
-    }
+    //location_post();
+    //update_nearby_stations();
   }
 
   if (system_state == STARTUP)
@@ -697,14 +744,17 @@ void loop()
       }
       else if (system_select == 1)
       {
-        system_state = USER_STATS;
+        system_state = BORROW_VIEW;
       }
       else if (system_select == 2)
       {
-        system_state = CREDITS;
-        display_credits();
+        system_state = USER_STATS;
       }
       else if (system_select == 3)
+      {
+        system_state = CREDITS;
+      }
+      else if (system_select == 4)
       {
         login_state = START;
         system_state = LOGIN;
@@ -727,12 +777,15 @@ void loop()
 
   else if (system_state == CHECKOUT)
   {
+    // Serial.printf("Current button value is: %d\n", bv);
     if (checkout_state == SEARCH)
     {
       if (millis() - station_search_timer > station_search_period)
       {
+        Serial.printf("doing GET stuff now at %d\n", millis());
         get_latitude_longitude(&latitude, &longitude);
         update_nearby_stations();
+        // num_nearby_stations = 5;
         display_nearby_stations();
         station_search_timer = millis();
       }
@@ -747,19 +800,43 @@ void loop()
         station_select = (num_nearby_stations == 0) ? 0 : (station_select + num_nearby_stations - 1) % num_nearby_stations;
         display_nearby_stations();
       }
-      else if (bv > 0)
+      else if (bv == 1)
       {
-        sprintf(selected_station, "%s", nearby_stations[station_select]);
-        Serial.printf("station is now: %s\n", selected_station);
-        tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0, 2);
-        tft.setTextColor(TFT_BLUE, TFT_BLACK);
-        tft.println("BluePencils\n");
-        tft.setTextColor(TFT_RED, TFT_BLACK);
-        tft.printf("Fetching code for station: %s", selected_station);
-        get_unlock_code(selected_station);
-        fetch_code_timer = millis();
-        checkout_state = SELECTED;
+        display_station_select();
+        checkout_state = MAP;
+        
+      }
+      else if (bv == 2) { 
+        system_state = SELECT;
+        old_system_select = -1;
+        system_select = 0;
+      }
+    }
+
+    else if (checkout_state == MAP) {
+      if (bv3 > 0 || bv4 > 0) {
+        search_select = (search_select + 1) % 2;
+        display_station_select();
+      }
+      else if (bv > 0) {
+        if (search_select == 0) {
+          sprintf(selected_station, "%s", nearby_stations[station_select]);
+          Serial.printf("station is now: %s\n", selected_station);
+          tft.fillScreen(TFT_BLACK);
+          tft.setCursor(0, 0, 2);
+          tft.setTextColor(TFT_BLUE, TFT_BLACK);
+          tft.println("BluePencils\n");
+          tft.setTextColor(TFT_RED, TFT_BLACK);
+          tft.printf("Fetching code for station: %s", selected_station);
+          get_unlock_code(selected_station);
+          fetch_code_timer = millis();
+          checkout_state = SELECTED;
+        }
+        else {
+          search_select = 0;
+          checkout_state = SEARCH;
+          display_nearby_stations();
+        }
       }
     }
     else if (checkout_state == SELECTED)
@@ -792,7 +869,11 @@ void loop()
         tft.println("BluePencils\n");
         tft.printf("Code entered successfully!");
         checkout_state = SEARCH;
-        system_state = USER_STATS;
+        system_state = BORROW_VIEW;
+        sprintf(borrow_status, "YES\n");
+        system_state = BORROW_VIEW;
+        borrow_state = BORROWING;
+        borrow_start = millis();
       }
       else if (strcmp(code_status, "EXPIRED\n") == 0)
       {
@@ -815,13 +896,19 @@ void loop()
       }
     }
   }
-  else if (system_state == USER_STATS)
+  else if (system_state == BORROW_VIEW)
   {
-    if (millis() - check_stats_timer > check_stats_wait)
+    if (borrow_state == BORROWING)
     {
-      update_user_stats();
-      display_user_stats();
-      check_stats_timer = millis();
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0, 2);
+      tft.printf("Currently borrowing a pencil!\nCurrent borrow duration: %d\n", millis() - borrow_start);
+    }
+    else if (borrow_state == NOT_BORROWING)
+    {
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0, 2);
+      tft.printf("Not currently borrowing a pencil!");
     }
     if (bv1 > 0 || bv2 > 0 || bv3 > 0 || bv4 > 0)
     {
@@ -830,14 +917,28 @@ void loop()
       system_select = 0;
     }
   }
+  else if (system_state == USER_STATS)
+  {
+    // when looking for a closer station
+  }
 
   else if (system_state == CREDITS)
   {
-    if (bv1 > 0 || bv2 > 0 || bv3 > 0 || bv4 > 0)
+  }
+
+  // monitor for borrowing session to end
+  if (millis() - check_borrow_timer > check_borrow_wait)
+  {
+    check_borrow_timer = millis();
+    update_borrow_status();
+    if (strcmp(borrow_status, "YES\n"))
     {
-      system_state = SELECT;
-      old_system_select = -1;
-      system_select = 0;
+      // borrow has ended
+      borrow_state = NOT_BORROWING;
+    }
+    else
+    {
+      borrow_state = BORROWING;
     }
   }
 
