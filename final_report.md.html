@@ -1,0 +1,190 @@
+<div style="font-size: 30; font-weight: bold; text-align: center;">BluePencils</div>
+
+<!-- <iframe width="560" height="315" src="https://www.youtube.com/embed/ZDh9lcBJqnk" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe> -->
+final video here
+
+# Functionality
+This system allows users to join and borrow a pencil from any station. After a user is finished borrowing the pencil, they can return it at any station they can find.
+## Logging In
+A user ESP32 first starts in the login state. The user can enter in letters for a username and passwrod by rotating the arduino left and right. If they already have an account, they must enter the correct password, or else they will not be able to login. If they do not yet have an account, a new account will be created with the newly entered username and password.
+## Station Map
+## Borrowing a Pencil
+A user can request a code on their ESP32 which will then display on the LCD. The user enters this code into a station ESP32 by clicking the buttons. If the code is correct and it has been less than a minute, the dispenser will dispence a pencil.
+## Statistics
+## Returning a Pencil
+A user returns a pencil by opening the back of the dispenser and dropping the pencil in.
+## Viewing Statistics Online
+
+# Documentation
+
+## User System Layout
+
+<!-- <iframe src="https://drive.google.com/file/d/1jbuiZevFTLzSwH5PJDiFs1GM55m8hjXn/preview" width="640" height="480"></iframe> -->
+Add image
+
+## Station System Layout
+
+<!-- <iframe src="https://drive.google.com/file/d/1jbuiZevFTLzSwH5PJDiFs1GM55m8hjXn/preview" width="640" height="480"></iframe> -->
+Add image
+
+## User State Machine Diagram
+
+<!-- <iframe src="https://drive.google.com/file/d/1L059MRxPH4SMtpB1A8agrPc-RD4BoQn6/preview" width="640" height="480"></iframe> -->
+Add image
+
+## Station State Machine Diagram
+
+Add image
+
+## Parts List
+- TFT 2.8â€™ LCD Display ILI9325
+    - Total price: 16.99
+    - Description: larger display
+    - Use: better display of board and side bar
+- 2 Pencil Dispensers
+    - Total price: 50
+    - Description: stores and releases pencils
+    - Use: 
+- 2 Motors
+- 2 Clickers
+
+## Design Challenges and Decisions
+
+# Detailed Code Layout
+
+## The Button Class
+Each of the pool balls is defined as a Ball object. Each ball has attributes that are the same between all of the balls like friction coefficients, mass, radius, and board limits, as well as attributes specific to each ball like their position, velocity, acceleration, and color. 
+
+Important Functions:
+
+- `step`: The main function that moves the ball one time step. Does so by updating the velocity of the ball depending on the applied force on the time step as well as friction, after which it calls the move_ball function
+- `move_ball`: This function updates the position of the ball after one time step using its newly calculated velocity from the step function. It also handles instances where the ball collides with the edge of the board as well as if it enters a pocket region and exits the pool board. 
+
+## The User Class
+The game class is the main class in which all of the balls of the game are contained and the overarching collision physics is handled. This is the class that is primarily utilized by the server to update ball positions after a shot is made, and its main attribute is an array of 16 Ball objects that designates each of the balls on a pool board. It also has a base constructor to create the Game object when the game has just started as well as a variable to designate if a scratch occurs.
+
+## The Station Class
+
+## Server Side
+### Databases
+
+#### borrowed_pencils.db 
+
+#### checkout.db
+<!-- Once a player finishes making a move, the ESP sends a POST request with their username, team, x-component of the shotâ€™s force, and the y-component. The server creates an ongoing game object by retrieving the most recent x- and y-coordinates of the balls from the moves and frames database shown below.
+
+| user  | team  | move| timing | x0 | â€¦ | y0 | ... | y15|
+|---|---|---|---|---|---|---|---|---|
+| jake | A  | 1 | 2021-04-29 08:15:27.243860 | 2 | ... | 89 |  â€¦ | 65|
+| jake | A  | 1 | 2021-04-29 08:15:27.233561 | 3 | ... | 90 | â€¦ | 65| -->
+
+#### location.db
+
+#### pencil.db
+
+#### users_locations.db
+
+#### user_data.db
+
+### Code
+#### code_checker.py
+#### code_status.py
+#### create_station.py
+#### get_code.py
+#### get_nearest_locations.py
+#### get_stats.py
+#### get_stats_web.py
+#### login.py
+#### pencil_update.py
+#### return_pencil.py
+#### station.py
+#### user_location.py
+
+
+# Weekly Demo and Milestone Videos
+## Week 1
+<!-- ### Image Database
+
+
+### Accelerometer and Input
+<iframe width="560" height="315" src="https://www.youtube.com/embed/WRONPaFj-Ck" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+
+### Physics and Game Logic
+<iframe width="560" height="315" src="https://www.youtube.com/embed/h4dIX1srCSQ" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+
+### Ashish's Github
+<iframe width="560" height="315" src="https://www.youtube.com/embed/8DsFuOah9nc" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+
+### Julius's Github
+<iframe src="https://drive.google.com/file/d/1-RKZ_jWxQBpKn6PgLNKwuba25BAScQo_/preview" width="640" height="480"></iframe>
+
+
+### Eyosias's Github
+<iframe src="https://drive.google.com/file/d/1-ShrPO2TwwDvfrhXXqPq__YeK4HeUN53/preview" width="640" height="480"></iframe>
+
+
+### Jenny's Github
+<iframe width="560" height="315" src="https://www.youtube.com/embed/x_vpDuyZdCQ" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe> -->
+
+
+## Week 2
+<!-- ### Image Database
+<iframe src="https://drive.google.com/file/d/10WvFx6mIM3yRMUmvH2Ivxl78RURei6iy/preview" width="640" height="480"></iframe>
+
+
+### Accelerometer and Input
+<iframe width="560" height="315" src="https://www.youtube.com/embed/dYSSlVDLBIw" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+
+### Physics and Game Logic
+<iframe width="560" height="315" src="https://www.youtube.com/embed/pZdbR2LRxCw" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe> -->
+
+
+## Week 3
+<!-- ### Image Database and ESP Display
+<iframe src="https://drive.google.com/file/d/13-YEHpiruOlaD5UugApEGnMaxI-h_i7J/preview" width="640" height="480"></iframe>
+
+
+### Accelerometer and Input
+<iframe width="560" height="315" src="https://www.youtube.com/embed/djp99xOW2Cw" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+
+### Physics and Game Logic
+<iframe width="560" height="315" src="https://www.youtube.com/embed/1g-OlEKTH1k" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+ -->
+
+## Week 4
+<!-- ### Image Database and ESP Display
+<iframe width="560" height="315" src="https://www.youtube.com/embed/rlCYVcv9xG8" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+
+### Accelerometer and Input
+<iframe width="560" height="315" src="https://www.youtube.com/embed/F7Mv5ciRJzU" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+
+### Pool Game Demo
+<iframe width="560" height="315" src="https://www.youtube.com/embed/rlCYVcv9xG8" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe> -->
+
+
+# Team Members
+- Allen Ding
+- Benjamin Kang
+- Ezra Erives
+- Sebastian Zhu
+- Siddarth Muppalla
+<!-- Markdeep: -->
+<style class="fallback">
+body {
+    visibility: hidden;
+    white-space: pre;
+    font-family: monospace
+}
+</style>
+<script src="markdeep.min.js"></script>
+<script src="https://casual-effects.com/markdeep/latest/markdeep.min.js?"></script>
+<script>
+window.alreadyProcessedMarkdeep || (document.body.style.visibility = "visible")
+</script>
