@@ -547,8 +547,8 @@ void loop()
 
   if (system_state != STARTUP && system_state != LOGIN)
   {
-    //location_post();
-    //update_nearby_stations();
+    location_post();
+    update_nearby_stations();
   }
 
   if (system_state == STARTUP)
