@@ -1,0 +1,213 @@
+<meta charset="utf-8" emacsmode="-*- markdown -*-">
+​​<div style="font-size: 30; font-weight: bold; text-align: center;">BluePencils</div>
+Some intro stuff
+
+<!-- <iframe width="560" height="315" src="https://www.youtube.com/embed/ZDh9lcBJqnk" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe> -->
+final video here
+
+# Functionality
+
+This system allows users to join and borrow a pencil from any station. After a user has finished borrowing the pencil, they can return it at any station they can find.
+
+## Logging In
+
+A user ESP32 first starts in the login state. The user can enter in letters for a username and password by rotating the arduino left and right. If they already have an account, they must enter the correct password, or else they will not be able to login. If they do not yet have an account, a new account will be created with the newly entered username and password.
+
+## Station Map
+
+The map is a feature that shows the user the location of the nearest stations relative to the current location of the user. After finding the stations via the backend, the ESP will give the user an option to display a map of the user and the surrounding stations. The user will appear as a green dot in the center of the screen, and each station will appear in relative position to the green dot as a white dot. In addition, one station will be selected and appear as a red dot, and which station is red can be toggled using buttons 3 and 4. The user can select the current red station in order to view more information about that station, including its name, absolute location, and the number of pencils present in the station.
+
+## Borrowing a Pencil
+
+A user can request a code on their ESP32 which will then display on the LCD. The user enters this code into a station ESP32 by clicking the buttons. If the code is correct and it has been less than a minute, the dispenser will dispense a pencil.
+
+## Statistics
+
+When the user selects statistics on the LCD, the user is able to see the number of days and hours since making an account, total number of pencils checked out, and last station the user used. The user then has the option to exit the screen.
+
+The user can also find these same statistics online on a webpage.
+
+## Returning a Pencil
+A user returns a pencil by opening the back of the dispenser and dropping the pencil in.
+
+## Logout
+
+There is also a logout page which directs the user back to the page at which they can enter username and password.
+
+# Documentation
+
+## User System Layout
+
+
+<!-- ![Wiring for the motor attached to the dispenser](./1.jpg | width=70%) -->
+Add images of user arduino or smth
+
+## Station System Layout
+
+### Dispenser
+
+The dispenser is glued to a wheel which is attached to a motor. The motor is soldered to a motor driver which is attached to the ESP32. The driver is wired with VCC connecting to 5V, GND to GND, and the two inputs to output pins 10 and 11. The circuit diagram is shown below:
+
+![Wiring for the motor attached to the dispenser](./1.jpg | width=70%)
+
+The ESP32 controls the two inputs to the motor. When both inputs are the same (e. g. Both HIGH or both LOW), the motor does not turn. When input 1 is HIGH and the other is LOW, the wheel rotates in the clockwise direction and a pencil is dispensed. When a station is unlocked, the ESP32 turns input1 to HIGH and input2 to LOW. After 450 milliseconds, the wheel does one rotation, and the station turns both inputs back to LOW and returns to the starting state. 
+
+### Clickers
+
+One end of the clickers is wired to ground and another end is connected to an input pin (pin 1) of the ESP32 as well as a resistor connecting to ground. The circuit diagram is shown below:
+
+
+![Wiring for clicker](./2.png | width=70%)
+
+Pin 1 is able to detect if the clicker is clicked. The station checks during every loop if the clicker is pressed since a pencil can be returned at any time. If the clicker is pressed and was not pressed last iteration, it increments the number of pencils and sends it back to the database. It does not alter the state since it should not interfere with retrieving pencils at all. 
+
+## User State Machine Diagram
+
+<!-- ![Wiring for the motor attached to the dispenser](./1.jpg | width=70%) -->
+Add image
+
+## Station State Machine Diagram
+
+Add image
+
+## Parts List
+- TFT 2.8â€™ LCD Display ILI9325
+    - Total price: 16.99
+    - Description: larger display
+    - Use: better display of board and side bar
+- 2 Pencil Dispensers
+    - Total price: 50
+    - Description: stores and releases pencils
+    - Use:
+- 2 Motors
+- 2 Clickers
+
+## Design Challenges and Decisions
+
+### 
+
+# Detailed Code Layout
+
+## ESP32 Side
+
+### The Button Class
+
+### The User Class
+
+### The Station Class
+
+## Server Side
+
+### borrowed_pencils.db
+
+When a user borrows a pencil, a new entry is created in the database with the user and time of borrowing. Then, when the user returns that pencil, this entry is deleted from the database.
+
+### checkout.db
+<!-- Once a player finishes making a move, the ESP sends a POST request with their username, team, x-component of the shotâ€™s force, and the y-component. The server creates an ongoing game object by retrieving the most recent x- and y-coordinates of the balls from the moves and frames database shown below.
+
+| user  | team  | move| timing | x0 | â€¦ | y0 | ... | y15|
+|---|---|---|---|---|---|---|---|---|
+| jake | A  | 1 | 2021-04-29 08:15:27.243860 | 2 | ... | 89 |  â€¦ | 65|
+| jake | A  | 1 | 2021-04-29 08:15:27.233561 | 3 | ... | 90 | â€¦ | 65| -->
+
+### location.db
+
+### pencil.db
+
+For each station, this database stores the name of the station and the number of pencils stored in the dispenser at that station. Every time a pencil is dispensed or returned, the database is updated accordingly.
+
+### users_locations.db
+
+This database stores the username, latitude, and longitude of all the users. Every 5 seconds, a user arduino posts their location to the server, and a new location is inserted if it is the user’s first time posting and updated otherwise.
+
+### user_data.db
+
+### get_code.py
+
+get_code.py is an endpoint that accepts GET requests and generates a random 3 digit number where the digits are between 1 and 3. Users make requests to this endpoint in order to unlock a pencil, and the server generates the code and then places it in the database, with data including the code itself as well as the user, the station that has been requested, the time the request was made, and an integer that represents whether or not the code has been used, which by default is set to 0 (false). 
+
+The code is then returned to the user, which they can then use to unlock a pencil.
+
+### code_checker.py
+
+This endpoint modifies the database such that when a user enters a valid code within one minute of the code being requested, the entry in the database is marked as being used. This is done by introducing a new field in the database called “used”, which is initially set to False but upon a code being properly accessed it is set to True. Further requests to unlock a pencil via code_checker.py using the same code will be invalid.
+
+### code_status.py
+
+This file is a new endpoint that user arduinos can make requests to in order to see the status of a code. When the request is made, the user sends in their username as well as the code. These values are then compared against the database and returns either “EXPIRED”, “USED”, or “NOT USED”, such that the user then nows how to proceed accordingly (i.e. if the code is expired, they can request a new code instead of trying the same code, if it is not used they can try again, etc).
+
+### create_station.py
+
+
+### get_nearest_locations.py
+
+
+### get_stats.py
+
+This file is a new endpoint that returns a tuple that consists of the statistics for a user. GET requests can be made to this file with the user name as a parameter, and the endpoint will look for the user in the user database and return the corresponding statistics for the user if found. A separate table in user_data.db is made, called user_stats, which registers a user whenever a new account is made and sets the stats for that user to the default values. 
+
+The stats currently being tracked are the total lifetime on Blue Pencils, the total number of checkouts, and the last station that is used. The database keeps track of the time of initialization and calculates lifetime on each request; the default number of checkouts is 0 and increases by 1 each time a pencil is checked out, and the last station used starts off as N/A but also updates upon pencil checkout. 
+
+### get_stats_web.py
+
+This file is another new endpoint that functions very similarly to get_stats.py, but instead returns HTML such that requests can be made to the server on the web and the results are displayed on the screen in a visually appealing fashion.
+
+### login.py
+
+The `login.py` file handles user login. Upon a user client submitting a POST request containing its username and (future to be encrypted) password, the file will match the username to the password in the `user_data.db` database and, upon finding a match, return a statement telling the user that they have successfully logged in. When a match is not found, the file will tell the user client that the username and password do not match, upon which the user client will prompt the user to try again.
+
+### pencil_update.py
+
+This endpoint supports GET requests which take in the station name and return the current number of pencils in the station, as well as POST requests which take in the station name as well as the change in number of pencils, and modifies the number of pencils the station is recorded as having in the backend. This endpoint is called both when a user successfully borrows a pencil and when a station detects its clicker being clicked.
+
+### return_pencil.py
+
+This file has two commands. A station can send a post request with its latitude and longitude. The code looks through the database of locations of users to find which user is closest. Then it removes that user from the database of borrowed pencils.
+A user can also send a get request with their username, and the endpoint will tell the user if they have any borrowed pencils. When the user has a pencil borrowed, it will periodically send requests to check when the user returns the pencil.
+
+### user_location.py
+
+This file is a backend endpoint where users send their coordinates periodically. It stores the location in a database so there is a location for every user. This is necessary so stations can have an updated version of where all users are when they need to find the closest user for returning a pencil.
+
+# Weekly Demo and Milestone Videos
+## Week 1
+
+
+## Week 2
+
+
+## Week 3
+
+![Pencil Dispenser Video](https://youtube.com/watch?v=ZLviGb61N5s)
+![Returning Clicker Video](https://youtube.com/watch?v=NVkswElEskc)
+![User and Station System Video](https://youtube.com/watch?v=dXtzN1EuLFE)
+
+## Week 4
+
+![Web Statistics Video](https://www.youtube.com/watch?v=XBamnSySXOw)
+![LCD Statistics Video](https://www.youtube.com/watch?v=FJXog_8mjrI)
+![User Pencil Checkout Screen Video](https://youtu.be/JTm71M84JXQ)
+![LCD Station Map Video](https://www.youtube.com/watch?v=_G0a56bzSsQ)
+![Fully Wired Return System Video](https://youtu.be/JTm71M84JXQ)
+
+# Team Members
+- Allen Ding
+- Benjamin Kang
+- Ezra Erives
+- Sebastian Zhu
+- Siddarth Muppalla
+
+<!-- Markdeep: -->
+<style class="fallback">
+body {
+    visibility: hidden;
+    font-family: monospace
+}
+</style>
+<script src="markdeep.min.js"></script>
+<script src="https://casual-effects.com/markdeep/latest/markdeep.min.js?"></script>
+<script>
+window.alreadyProcessedMarkdeep || (document.body.style.visibility = "visible")
+</script>
+
+

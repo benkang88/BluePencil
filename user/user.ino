@@ -16,6 +16,7 @@ const int BUTTON2_PIN = 39;
 const int BUTTON3_PIN = 38;
 const int BUTTON4_PIN = 34;
 const int LOOP_PERIOD = 40;
+const int LOCATION_PERIOD = 5000;
 
 MPU6050 imu; // imu object called, appropriately, imu
 
@@ -55,6 +56,7 @@ const int HEIGHT = 159;
 const int WIDTH = 127;
 
 uint32_t primary_timer;
+uint32_t location_timer;
 
 int old_val;
 
